@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Portfolio Admin — Cristian Tassone</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-bar">
+      <a class="admin-home" href="index.html" aria-label="Open portfolio"><span class="home-mark" aria-hidden="true">⌂</span><span>Portfolio</span></a>
+      <div class="admin-title">Portfolio Admin</div>
+      <div class="admin-controls" aria-label="Portfolio editors">
+        <button class="admin-orb" id="open-about" type="button" aria-label="Edit About">
+          <svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="13" r="7"/><path d="M8 39c1-8 6.2-12 14-12s13 4 14 12"/></svg><span>About</span>
+        </button>
+        <button class="admin-orb" id="open-contact" type="button" aria-label="Edit Contact">
+          <svg viewBox="0 0 44 32" aria-hidden="true"><rect x="2" y="2" width="40" height="28" rx="3"/><path d="m3.5 4 18.5 14L40.5 4"/></svg><span>Contact</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="admin-stage">
+      <div class="admin-intro">
+        <span class="eyebrow">Content editor</span>
+        <h1 id="site-name"></h1>
+        <p>Click a channel title or tagline to edit it directly. Select a project tile to edit its details.</p>
+      </div>
+      <nav class="channel-tabs" id="channel-tabs" aria-label="Portfolio channels"></nav>
+      <section class="channel-workspace">
+        <header class="channel-heading">
+          <div><span class="eyebrow">Editing channel</span><h2 id="channel-label" contenteditable="true" spellcheck="false" aria-label="Channel name"></h2><p id="channel-tagline" contenteditable="true" spellcheck="false" aria-label="Channel tagline"></p></div>
+          <span class="project-count" id="project-count"></span>
+        </header>
+        <div class="project-grid" id="project-grid" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="floating-actions">
+    <button class="preview-button" id="preview" type="button">Preview</button>
+    <button class="deploy-button" id="deploy" type="button"><span class="deploy-dot" aria-hidden="true"></span> Deploy</button>
+  </div>
+  <p class="deploy-status" id="deploy-status" role="status"></p>
+
+  <dialog class="editor-dialog" id="project-dialog" aria-labelledby="project-dialog-title">
+    <form id="project-form" method="dialog">
+      <header class="dialog-header"><div><span class="eyebrow" id="project-dialog-kicker">New project</span><h2 id="project-dialog-title">Add project</h2></div><button class="icon-close" type="button" data-close-dialog aria-label="Close editor">×</button></header>
+      <div class="form-grid">
+        <label>Title<input name="title" required></label><label>Slug<input name="slug" placeholder="generated-from-title"></label>
+        <label>Channel<select name="category" id="project-category"></select></label><label>Year<input name="year" placeholder="2026"></label>
+        <label>Role<input name="role" placeholder="direction · edit"></label><label>Client<input name="client"></label>
+        <label class="wide">One-line context<textarea name="context" rows="3"></textarea></label>
+        <label class="wide">Project text<textarea name="body" rows="6" placeholder="One paragraph per line."></textarea></label>
+        <label class="wide upload-field">Project GIF or cover image<input name="media" type="file" accept="image/gif,image/png,image/jpeg,image/webp"><span id="media-current">No media selected</span></label>
+        <label>Tile hover title<input name="tileHoverTitle" placeholder="PROJECT TITLE"></label><label>YouTube video URL<input name="videoUrl" placeholder="https://www.youtube.com/watch?v=..."></label>
+        <label>Page style<select name="caseStyle"><option value="">Standard project page</option><option value="feature">Feature project page</option></select></label>
+      </div>
+      <footer class="dialog-actions"><button class="danger-button" id="delete-project" type="button">Delete project</button><span class="dialog-spacer"></span><button class="secondary-button" type="button" data-close-dialog>Cancel</button><button class="save-button" type="submit">Save project</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="editor-dialog settings-dialog" id="about-dialog" aria-labelledby="about-title">
+    <form id="about-form" method="dialog">
+      <header class="dialog-header"><div><span class="eyebrow">Portfolio copy</span><h2 id="about-title">About</h2></div><button class="icon-close" type="button" data-close-dialog aria-label="Close About editor">×</button></header>
+      <div class="form-grid">
+        <label>Portfolio name<input name="name"></label><label>Location<input name="location"></label>
+        <label class="wide">About intro<textarea name="lead" rows="3"></textarea></label>
+        <label class="wide">About text<textarea name="body" rows="7" placeholder="One paragraph per line."></textarea></label>
+      </div>
+      <footer class="dialog-actions"><button class="danger-button" id="discard-drafts" type="button">Discard drafts</button><span class="dialog-spacer"></span><button class="secondary-button" type="button" data-close-dialog>Cancel</button><button class="save-button" type="submit">Save About</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="editor-dialog settings-dialog" id="contact-dialog" aria-labelledby="contact-title">
+    <form id="contact-form" method="dialog">
+      <header class="dialog-header"><div><span class="eyebrow">Portfolio copy</span><h2 id="contact-title">Contact</h2></div><button class="icon-close" type="button" data-close-dialog aria-label="Close Contact editor">×</button></header>
+      <div class="form-grid">
+        <label class="wide">Contact email<input name="email" type="email"></label>
+        <label class="wide">Resume URL<input name="resume" type="url" placeholder="https://..."></label>
+        <label class="wide">Contact links<textarea name="socials" rows="6" placeholder="instagram | https://www.instagram.com/...&#10;youtube | https://www.youtube.com/..."></textarea></label>
+      </div>
+      <footer class="dialog-actions"><span class="dialog-spacer"></span><button class="secondary-button" type="button" data-close-dialog>Cancel</button><button class="save-button" type="submit">Save Contact</button></footer>
+    </form>
+  </dialog>
+
+  <script src="js/data.js"></script>
+  <script src="js/media-store.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

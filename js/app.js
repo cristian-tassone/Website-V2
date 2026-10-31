@@ -1,0 +1,585 @@
+/* ============================================================
+   APP — router, views, channel-zoom transition.
+   Menu → channel splash → project grid → case study.
+   ("start" is a reserved second path segment — see README.)
+   ============================================================ */
+
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const scr = document.getElementById("scr");
+const doc = document.getElementById("doc");
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const inCat = (cat) => PROJECTS.filter((p) => p.category === cat);
+/* Every project opened from a channel uses the shared feature-page system. */
+const isFeatureProject = () => true;
+
+/* ---------------- channel faces ---------------- */
+function catFace(id) {
+  const c = CATEGORIES[id];
+  return `<span class="face face--art" style="--g1:${c.g1};--g2:${c.g2}">
+            <span class="face-label">${c.label} Channel</span>
+            <span class="face-icon"><svg viewBox="0 0 24 24">${c.icon}</svg></span>
+          </span>`;
+}
+function projFace(p) {
+  const c = CATEGORIES[p.category];
+  const tileMedia = p.tileMedia || p.cover;
+  if (tileMedia) {
+    const hoverPreview = p.tileHoverTitle
+      ? `<span class="tile-hover-title">${esc(p.tileHoverTitle)}</span>`
+      : `<span class="face-label">${esc(p.title)}</span>`;
+    return `<span class="face face--photo${p.tileHoverTitle ? " face--hover-preview" : ""}">
+              <img src="${tileMedia}" alt="" draggable="false">
+              ${hoverPreview}
+            </span>`;
+  }
+  return `<span class="face face--art" style="--g1:${c.g1};--g2:${c.g2}">
+            <span class="face-label">${esc(p.title)}</span>
+            <span class="face-year">${esc(p.year)}</span>
+          </span>`;
+}
+
+/* ---------------- the zoom ---------------- */
+let busy = false;
+const setBusyCursor = (on) => document.body.classList.toggle("is-transitioning", on);
+const asRect = (r) => ({ left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
+function clone(html) {
+  const z = document.createElement("div");
+  z.className = "zoomer";
+  z.innerHTML = html;
+  document.body.appendChild(z);
+  return z;
+}
+function morphingClone(tile, html) {
+  const z = clone("");
+  const media = tile.querySelector(".face--photo img");
+  if (media) {
+    z.classList.add("zoomer--media");
+    z.appendChild(media);
+    z.movingMedia = media;
+  } else {
+    z.innerHTML = html;
+  }
+  return z;
+}
+/* Tile grows to fill the screen, or morphs directly into a matching feature banner. */
+function zoomIn(tile, html, go, targetSelector = "") {
+  if (REDUCED || busy) { go(); return; }
+  busy = true;
+  setBusyCursor(true);
+  const z = targetSelector ? morphingClone(tile, html) : clone(html);
+  Object.assign(z.style, asRect(tile.getBoundingClientRect()));
+
+  if (targetSelector) {
+    document.body.classList.add("is-feature-morphing");
+    go();
+    setBusyCursor(true);
+    const target = document.querySelector(targetSelector);
+    z.getBoundingClientRect();
+    z.classList.add("fly");
+    if (target) {
+      Object.assign(z.style, asRect(target.getBoundingClientRect()));
+      z.style.borderRadius = getComputedStyle(target).borderRadius;
+    }
+    setTimeout(() => {
+      const bannerImage = target?.querySelector("img");
+      if (z.movingMedia && bannerImage) bannerImage.replaceWith(z.movingMedia);
+      z.remove();
+      document.body.classList.replace("is-feature-morphing", "is-feature-morph-complete");
+      setTimeout(() => document.body.classList.remove("is-feature-morph-complete"), 850);
+      busy = false;
+      setBusyCursor(false);
+    }, 620);
+    return;
+  }
+
+  z.getBoundingClientRect();
+  z.classList.add("fly");
+  Object.assign(z.style, { left: "0px", top: "0px", width: "100vw", height: "100vh", borderRadius: "0px" });
+  setTimeout(go, 430);
+  setTimeout(() => z.classList.add("gone"), 640);
+  setTimeout(() => { z.remove(); busy = false; setBusyCursor(false); }, 1040);
+}
+/* and back down into whichever tile it came from */
+function zoomOut(html, selector, go, sourceSelector = "") {
+  if (REDUCED || busy) { go(); return; }
+  busy = true;
+  if (sourceSelector) {
+    const source = document.querySelector(sourceSelector);
+    const sourceMedia = source?.querySelector("img");
+    const z = clone("");
+    if (sourceMedia) {
+      z.classList.add("zoomer--media", "zoomer--reverse");
+      z.appendChild(sourceMedia);
+      z.movingMedia = sourceMedia;
+    } else {
+      z.innerHTML = html;
+    }
+    Object.assign(z.style, asRect(source.getBoundingClientRect()));
+    document.body.classList.add("is-feature-reversing");
+    go();
+    setBusyCursor(true);
+    const tile = scr.querySelector(selector);
+    tile?.classList.add("is-morph-target");
+    z.getBoundingClientRect();
+    z.classList.add("fly");
+    if (tile) {
+      Object.assign(z.style, asRect(tile.getBoundingClientRect()));
+      z.style.borderRadius = "1.56vw";
+    }
+    setTimeout(() => {
+      const tileImage = tile?.querySelector(".face--photo img");
+      if (z.movingMedia && tileImage) tileImage.replaceWith(z.movingMedia);
+      z.remove();
+      tile?.classList.remove("is-morph-target");
+      document.body.classList.remove("is-feature-reversing");
+      busy = false;
+      setBusyCursor(false);
+    }, 620);
+    return;
+  }
+  const z = clone(html);
+  Object.assign(z.style, { left: "0px", top: "0px", width: "100vw", height: "100vh", borderRadius: "0px" });
+  go();
+  setBusyCursor(true);
+  const tile = scr.querySelector(selector);
+  z.getBoundingClientRect();
+  z.classList.add("fly");
+  if (tile) {
+    Object.assign(z.style, asRect(tile.getBoundingClientRect()));
+    z.style.borderRadius = "1.56vw";
+  }
+  setTimeout(() => z.classList.add("gone"), 520);
+  setTimeout(() => { z.remove(); busy = false; setBusyCursor(false); }, 950);
+}
+
+/* ---------------- views ---------------- */
+const ARROW = `<svg viewBox="0 0 60 90" aria-hidden="true"><path d="M9 6 53 45 9 84Z"/></svg>`;
+
+function pad(tiles) {
+  const n = Math.max(12, Math.ceil(tiles.length / 4) * 4);
+  const out = tiles.slice();
+  while (out.length < n) out.push(`<div class="chan chan--void" aria-hidden="true"></div>`);
+  return out.join("");
+}
+
+function viewMenu() {
+  document.title = "Cristian Tassone";
+  document.body.className = "v-menu";
+  const tiles = CATEGORY_ORDER.map((id) =>
+    `<a class="chan" href="#/${id}" data-tile="c:${id}" aria-label="${CATEGORIES[id].label} Channel">${catFace(id)}</a>`);
+  scr.innerHTML = `<div class="grid">${pad(tiles)}</div>`;
+}
+
+function viewSplash(id) {
+  const c = CATEGORIES[id];
+  document.title = `${c.label} Channel — Cristian Tassone`;
+  document.body.className = "v-splash";
+  const list = inCat(id);
+  const i = CATEGORY_ORDER.indexOf(id);
+  const prev = CATEGORY_ORDER[(i + CATEGORY_ORDER.length - 1) % CATEGORY_ORDER.length];
+  const next = CATEGORY_ORDER[(i + 1) % CATEGORY_ORDER.length];
+
+  /* the banner mirrors the Mii crowd — covers where they exist, name plates where they don't */
+  let cells = list.map((p) => p.cover
+    ? `<span class="bn"><img src="${p.cover}" alt="" loading="lazy"></span>`
+    : `<span class="bn bn--txt">${esc(p.title)}</span>`);
+  while (cells.length && cells.length < 7) cells = cells.concat(cells);   // fill the strip
+  cells = cells.slice(0, 9);
+
+  scr.innerHTML = `
+    <div class="splash" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
+      <h1 class="splash-title">The ${c.label} Channel</h1>
+      <div class="splash-banner">${cells.join("")}</div>
+      <p class="splash-sub">${esc(c.tagline)} — ${list.length} project${list.length === 1 ? "" : "s"}</p>
+      <div class="splash-btns">
+        <button class="btn" type="button" data-home>Wii Menu</button>
+        <a class="btn" href="#/${id}/start" data-start>Start</a>
+      </div>
+      <a class="arw arw--l" href="#/${prev}" aria-label="${CATEGORIES[prev].label} Channel">${ARROW}</a>
+      <a class="arw arw--r" href="#/${next}" aria-label="${CATEGORIES[next].label} Channel">${ARROW}</a>
+    </div>`;
+}
+
+function viewGrid(id) {
+  const c = CATEGORIES[id];
+  document.title = `${c.label} — Cristian Tassone`;
+  const reversing = document.body.classList.contains("is-feature-reversing");
+  document.body.className = `v-grid v-grid--${id}${reversing ? " is-feature-reversing" : ""}`;
+  const tiles = inCat(id).map((p) =>
+    `<a class="chan" href="#/${id}/${p.slug}" data-tile="p:${p.slug}" aria-label="${esc(p.title)}">${projFace(p)}</a>`);
+  const i = CATEGORY_ORDER.indexOf(id);
+  const prev = CATEGORY_ORDER[(i + CATEGORY_ORDER.length - 1) % CATEGORY_ORDER.length];
+  const next = CATEGORY_ORDER[(i + 1) % CATEGORY_ORDER.length];
+  scr.innerHTML = `
+    <div class="strip" style="--dot:${c.accent}">
+      <span class="strip-name"><em>${c.label}</em> Channel</span>
+      ${id === "video" ? "" : `<button class="btn btn--sm" type="button" data-home>Wii Menu</button>`}
+    </div>
+    <div class="grid grid--sub">${pad(tiles)}</div>
+    <a class="arw arw--l" href="#/${prev}/start" aria-label="${CATEGORIES[prev].label}">${ARROW}</a>
+    <a class="arw arw--r" href="#/${next}/start" aria-label="${CATEGORIES[next].label}">${ARROW}</a>`;
+}
+
+function viewCase(p) {
+  if (isFeatureProject(p)) {
+    viewFeatureCase(p);
+    return;
+  }
+  const c = CATEGORIES[p.category];
+  document.title = `${p.title} — Cristian Tassone`;
+  document.body.className = "v-case";
+  const sib = inCat(p.category);
+  const i = sib.indexOf(p);
+  const prev = sib[(i + sib.length - 1) % sib.length];
+  const next = sib[(i + 1) % sib.length];
+
+  const meta = [["year", p.year], ["role", p.role], ["client", p.client]]
+    .filter(([, v]) => v).map(([k, v]) => `<li><span>${k}</span>${esc(v)}</li>`).join("");
+  const gallery = (p.gallery || []).map((s) => `<figure><img src="${s}" alt="" loading="lazy"></figure>`).join("");
+  const sections = (p.content || []).map((section) => section.type === "image"
+    ? `<figure><img src="${section.src}" alt="${esc(section.caption || p.title)}" loading="lazy">${section.caption ? `<figcaption>${esc(section.caption)}</figcaption>` : ""}</figure>`
+    : `<section class="case-copy">${section.heading ? `<h2>${esc(section.heading)}</h2>` : ""}<p>${esc(section.text || "")}</p></section>`).join("");
+  const credits = (p.credits || []).map(([k, v]) => `<div class="credit"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
+  const links = (p.links || []).map((l) => `<a class="tag" href="${l.url}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join("");
+
+  doc.innerHTML = `
+    <article class="case" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
+      <div class="case-bar">
+        <a class="btn btn--sm" href="#/${p.category}/start" data-back>← ${c.label}</a>
+        <button class="btn btn--sm" type="button" data-home>Wii Menu</button>
+      </div>
+      <span class="case-band">${c.label} Channel</span>
+      <h1>${esc(p.title)}</h1>
+      <ul class="case-meta">${meta}</ul>
+      <p class="case-context">${esc(p.context)}</p>
+      ${p.cover ? `<figure class="case-cover"><img src="${p.cover}" alt="${esc(p.title)}"></figure>` : ""}
+      <div class="case-body">${sections || (p.body || []).map((t) => `<p>${esc(t)}</p>`).join("")}</div>
+      ${p.embed ? `<div class="case-embed"><button class="btn btn--sm" data-embed="${p.embed}">▶ play on spotify</button></div>` : ""}
+      ${gallery ? `<div class="case-gallery">${gallery}</div>` : ""}
+      ${credits ? `<section class="case-credits"><h3>credits</h3>${credits}</section>` : ""}
+      ${links ? `<div class="case-links">${links}</div>` : ""}
+      <nav class="case-pn">
+        <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
+        <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
+      </nav>
+    </article>`;
+  scr.innerHTML = "";
+  window.scrollTo(0, 0);
+}
+
+function viewFeatureCase(p) {
+  const c = CATEGORIES[p.category];
+  const sib = inCat(p.category);
+  const i = sib.indexOf(p);
+  const prev = sib[(i + sib.length - 1) % sib.length];
+  const next = sib[(i + 1) % sib.length];
+  const hero = p.tileMedia || p.cover;
+  const facts = [["Year", p.year], ["Role", p.role], ["Client", p.client]]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `<div class="feature-fact"><span>${label}</span><b>${esc(value)}</b></div>`).join("");
+  const description = (p.body || []).map((text) => `<p>${esc(text)}</p>`).join("");
+  const hasVideo = Boolean(p.videoUrl || (p.links || []).some((link) => /youtube\.com|youtu\.be/.test(link.url)));
+  const gallery = (p.gallery || []).map((src, index) => p.slug === "cover-art"
+    ? `<button class="cover-gallery-card" type="button" data-image-preview="${src}" data-image-alt="${esc(p.title)} artwork ${index + 1}">
+        <img src="${src}" alt="${esc(p.title)} artwork ${index + 1}" loading="lazy">
+      </button>`
+    : `<img src="${src}" alt="${esc(p.title)}" loading="lazy">`).join("");
+  const links = (p.links || []).map((link) => `<a class="btn btn--sm" href="${link.url}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>`).join("");
+
+  document.title = `${p.title} — Cristian Tassone`;
+  const morphing = document.body.classList.contains("is-feature-morphing");
+  document.body.className = `v-case v-case--feature${morphing ? " is-feature-morphing" : ""}`;
+  doc.innerHTML = `
+    <article class="case case--feature" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
+      <nav class="feature-nav" aria-label="Project navigation">
+        <a class="feature-icon-btn" href="#/${p.category}/start" data-back aria-label="Back to ${c.label}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4 6.5 12l8 8M7.5 12h10"/></svg>
+        </a>
+        <button class="feature-icon-btn" type="button" data-home aria-label="Main menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>
+        </button>
+      </nav>
+      <figure class="feature-banner${hero ? "" : " feature-banner--art"}" style="--g1:${c.g1};--g2:${c.g2}">
+        ${hero ? `<img src="${hero}" alt="${esc(p.title)}">` : ""}
+        <figcaption>
+          <h1>${esc(p.title)}</h1>
+          <p>${p.client ? `${esc(p.client)} · ` : ""}${esc(p.year)}</p>
+        </figcaption>
+        ${hasVideo ? `<button class="feature-play" type="button" data-watch="${esc(p.slug)}" aria-label="Play ${esc(p.title)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
+        </button>` : ""}
+      </figure>
+      <section class="feature-details">
+        <div class="feature-story">
+          <h2>About the project</h2>
+          <p class="feature-lead">${esc(p.context)}</p>
+          ${description}
+        </div>
+        <aside class="feature-info" aria-label="Project details">${facts}</aside>
+      </section>
+      ${p.embed || gallery || links ? `<section class="feature-extras">
+        ${p.embed ? `<div class="case-embed"><button class="btn btn--sm" data-embed="${p.embed}">▶ play</button></div>` : ""}
+        ${gallery ? `<div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${gallery}</div>` : ""}
+        ${links ? `<div class="case-links">${links}</div>` : ""}
+      </section>` : ""}
+      <nav class="case-pn feature-pn">
+        <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
+        <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
+      </nav>
+    </article>`;
+  scr.innerHTML = "";
+  window.scrollTo(0, 0);
+  enableMagneticCoverGallery();
+}
+
+function enableMagneticCoverGallery() {
+  const gallery = doc.querySelector("[data-magnetic-gallery]");
+  if (!gallery || REDUCED) return;
+  const cards = [...gallery.querySelectorAll(".cover-gallery-card")];
+  let frame = 0;
+  const reset = () => cards.forEach((card) => {
+    card.style.setProperty("--pull-x", "0px");
+    card.style.setProperty("--pull-y", "0px");
+    card.style.setProperty("--pull-scale", "1");
+  });
+  gallery.addEventListener("pointermove", (event) => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      cards.forEach((card) => {
+        const rect = card.getBoundingClientRect();
+        const x = event.clientX - (rect.left + rect.width / 2);
+        const y = event.clientY - (rect.top + rect.height / 2);
+        const distance = Math.hypot(x, y);
+        const pull = Math.max(0, 1 - distance / 360);
+        card.style.setProperty("--pull-x", `${x * pull * .12}px`);
+        card.style.setProperty("--pull-y", `${y * pull * .09}px`);
+        card.style.setProperty("--pull-scale", String(1 + pull * .065));
+      });
+    });
+  });
+  gallery.addEventListener("pointerleave", reset);
+  reset();
+}
+
+/* ---------------- routing ---------------- */
+let quiet = false;
+
+function parse() {
+  const h = location.hash.replace(/^#\/?/, "").replace(/\/+$/, "");
+  if (!h) return { name: "menu" };
+  const [cat, seg] = h.split("/");
+  if (!CATEGORIES[cat]) return { name: "menu" };
+  if (!seg) return { name: "splash", cat };
+  if (seg === "start") return { name: "grid", cat };
+  // Slugs are the canonical project identity. Keeping the category check as
+  // a fallback guard made browser-created projects open their channel when
+  // metadata came from a different admin version.
+  const p = PROJECTS.find((x) => x.slug === seg);
+  return p ? { name: "case", p } : { name: "splash", cat };
+}
+
+function render(r) {
+  if (r.name === "case") viewCase(r.p);
+  else if (r.name === "grid") viewGrid(r.cat);
+  else if (r.name === "splash") viewSplash(r.cat);
+  else viewMenu();
+}
+const draw = () => render(parse());
+
+function go(hash) {
+  quiet = true;
+  location.hash = hash;
+  draw();
+}
+
+window.addEventListener("hashchange", () => {
+  if (quiet) { quiet = false; return; }
+  draw();
+});
+
+/* ---------------- interaction ---------------- */
+document.addEventListener("click", (e) => {
+  /* home, from anywhere */
+  const home = e.target.closest("[data-home]");
+  if (home) {
+    e.preventDefault();
+    if (busy) return;
+    SFX.back();
+    if (home.classList.contains("dock-menu")) {
+      go("#/");
+      return;
+    }
+    const r = parse();
+    const cat = r.name === "case" ? r.p.category : r.cat;
+    if (cat && document.body.classList.contains("v-grid")) zoomOut(catFace(cat), `[data-tile="c:${cat}"]`, () => go("#/"));
+    else go("#/");
+    return;
+  }
+  /* a channel tile — zoom it open */
+  const tile = e.target.closest(".chan[data-tile]");
+  if (tile) {
+    e.preventDefault();
+    if (busy) return;
+    SFX.open();
+    const project = PROJECTS.find((p) => `p:${p.slug}` === tile.dataset.tile);
+    const featureTarget = project && isFeatureProject(project) ? ".feature-banner" : "";
+    zoomIn(tile, tile.querySelector(".face").outerHTML, () => go(tile.getAttribute("href")), featureTarget);
+    return;
+  }
+  /* back out of a case study into its grid slot */
+  const back = e.target.closest("[data-back]");
+  if (back) {
+    e.preventDefault();
+    if (busy) return;
+    SFX.back();
+    const r = parse();
+    if (r.name === "case") {
+      const featureSource = isFeatureProject(r.p) ? ".feature-banner" : "";
+      zoomOut(projFace(r.p), `[data-tile="p:${r.p.slug}"]`, () => go(back.getAttribute("href")), featureSource);
+    }
+    else go(back.getAttribute("href"));
+    return;
+  }
+  /* Start / arrows / prev-next: plain navigation */
+  const a = e.target.closest("a[href^='#']");
+  if (a) { SFX.select(); go(a.getAttribute("href")); e.preventDefault(); }
+}, false);
+
+/* click-to-load embeds */
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-embed]");
+  if (!b) return;
+  SFX.select();
+  const embed = b.parentElement;
+  embed.classList.add("is-loading");
+  embed.innerHTML = `<iframe src="${b.dataset.embed}" title="spotify player" loading="lazy"
+    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+  const frame = embed.querySelector("iframe");
+  frame.addEventListener("load", () => embed.classList.remove("is-loading"), { once: true });
+  frame.addEventListener("error", () => embed.classList.remove("is-loading"), { once: true });
+});
+
+/* cursor ticks */
+document.addEventListener("pointerenter", (e) => {
+  if (e.target instanceof Element && e.target.matches(".chan[data-tile], .orb, .btn, .arw, .sd, .tag")) SFX.hover();
+}, true);
+
+/* ---------------- the clock ---------------- */
+const SEG = { a: [20, 6, 60, 16], b: [78, 20, 16, 60], c: [78, 96, 16, 60], d: [20, 158, 60, 16], e: [6, 96, 16, 60], f: [6, 20, 16, 60], g: [20, 82, 60, 16] };
+const DIGIT = { 0: "abcdef", 1: "bc", 2: "abged", 3: "abgcd", 4: "fgbc", 5: "afgcd", 6: "afgedc", 7: "abc", 8: "abcdefg", 9: "abcdfg" };
+const digit = (ch) => `<svg class="dg" viewBox="0 0 100 180" aria-hidden="true">${
+  [...(DIGIT[ch] || "")].map((s) => { const [x, y, w, h] = SEG[s]; return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.min(w, h) / 2}"/>`; }).join("")
+}</svg>`;
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const tEl = document.getElementById("clock-time");
+const dEl = document.getElementById("clock-date");
+
+function tick() {
+  const d = new Date();
+  let h = d.getHours();
+  const ap = h < 12 ? "AM" : "PM";
+  h = h % 12 || 12;
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const colon = `<svg class="cln ${d.getSeconds() % 2 ? "off" : ""}" viewBox="0 0 20 180" aria-hidden="true">
+                   <rect x="2" y="50" width="16" height="16" rx="8"/><rect x="2" y="112" width="16" height="16" rx="8"/>
+                 </svg>`;
+  tEl.innerHTML = String(h).split("").map(digit).join("") + colon + mm.split("").map(digit).join("") +
+                  `<span class="clock-ap">${ap}</span>`;
+  dEl.textContent = `${DAYS[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
+}
+tick();
+setInterval(tick, 1000);
+
+/* ---------------- overlays ---------------- */
+function overlay(id, open) {
+  const el = document.getElementById(id);
+  el.classList.toggle("open", open);
+  el.setAttribute("aria-hidden", String(!open));
+  if (!open && id === "ov-player") {
+    document.querySelector(".player-frame-wrap").classList.remove("is-loading");
+    setTimeout(() => { document.getElementById("player-frame").src = ""; }, 260);
+  }
+  if (open) SFX.pop(); else SFX.back();
+}
+
+function youtubeEmbed(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    const id = host === "youtu.be"
+      ? parsed.pathname.slice(1)
+      : parsed.searchParams.get("v") || (parsed.pathname.startsWith("/embed/") ? parsed.pathname.split("/")[2] : "");
+    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0` : url;
+  } catch (e) {
+    return url;
+  }
+}
+
+function openVideoPlayer(p) {
+  const source = p.videoUrl || (p.links || []).find((link) => /youtube\.com|youtu\.be/.test(link.url))?.url;
+  if (!source) return;
+  const frame = document.getElementById("player-frame");
+  const playerWrap = document.querySelector(".player-frame-wrap");
+  playerWrap.classList.add("is-loading");
+  frame.addEventListener("load", () => playerWrap.classList.remove("is-loading"), { once: true });
+  frame.addEventListener("error", () => playerWrap.classList.remove("is-loading"), { once: true });
+  frame.src = youtubeEmbed(source);
+  overlay("ov-player", true);
+}
+
+document.getElementById("orb-about").addEventListener("click", () => overlay("ov-about", true));
+document.getElementById("orb-mail").addEventListener("click", () => overlay("ov-contact", true));
+document.querySelectorAll(".ov").forEach((ov) => {
+  ov.addEventListener("click", (e) => { if (e.target === ov || e.target.closest("[data-close]")) overlay(ov.id, false); });
+});
+document.addEventListener("click", (e) => {
+  const watch = e.target.closest("[data-watch]");
+  if (watch) {
+    const project = PROJECTS.find((p) => p.slug === watch.dataset.watch);
+    if (project) openVideoPlayer(project);
+    return;
+  }
+  const image = e.target.closest("[data-image-preview]");
+  if (!image) return;
+  const preview = document.getElementById("image-preview");
+  preview.src = image.dataset.imagePreview;
+  preview.alt = image.dataset.imageAlt || "Artwork preview";
+  overlay("ov-image", true);
+});
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelectorAll(".ov.open").forEach((ov) => overlay(ov.id, false));
+});
+
+document.getElementById("about-body").innerHTML = `
+  <figure class="ab-portrait"><img src="${ABOUT.portrait}" alt="Cristian Tassone"></figure>
+  <p class="ab-lead">${esc(ABOUT.lead)}</p>
+  ${ABOUT.body.map((t) => `<p class="ab-p">${esc(t)}</p>`).join("")}
+  <h3>experience</h3>
+  ${ABOUT.experience.map((x) => `
+    <div class="ab-xp"><span>${esc(x.period)}</span><b>${esc(x.role)} — ${esc(x.org)}</b>
+      <ul>${x.points.map((pt) => `<li>${esc(pt)}</li>`).join("")}</ul></div>`).join("")}
+  ${SITE.resume ? `<p><a class="tag" href="${SITE.resume}" target="_blank" rel="noopener">resume ↗</a></p>` : ""}
+  <h3>tools</h3>
+  <div class="ab-tools">${ABOUT.tools.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>`;
+
+document.getElementById("contact-body").innerHTML = `
+  <p class="ab-lead">Always open to creative opportunities — or to just connect.</p>
+  <a class="btn btn--sm mail-btn" href="mailto:${SITE.email}">${SITE.email}</a>
+  <div class="ab-tools">${SITE.socials.map((s) => `<a class="tag" href="${s.url}" target="_blank" rel="noopener">${esc(s.label)} ↗</a>`).join("")}</div>`;
+
+/* sound switch */
+const sd = document.getElementById("btn-sound");
+const paintSd = () => { sd.classList.toggle("is-muted", SFX.muted); sd.title = SFX.muted ? "sound off" : "sound on"; };
+sd.addEventListener("click", () => { SFX.toggle(); paintSd(); });
+paintSd();
+
+/* ---------------- go ---------------- */
+draw();
+PortfolioMedia.hydrate(PROJECTS).then((media) => {
+  if (!media.size) return;
+  PROJECTS.forEach((project) => {
+    if (media.has(project.tileMedia)) project.tileMedia = media.get(project.tileMedia);
+    if (media.has(project.cover)) project.cover = media.get(project.cover);
+  });
+  draw();
+}).catch(() => {});

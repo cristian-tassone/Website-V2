@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Cristian Tassone</title>
+  <meta name="description" content="Cristian Tassone — Melbourne-based creative. Music, video, design, sport and software, presented as channels." />
+  <meta property="og:title" content="Cristian Tassone" />
+  <meta property="og:description" content="music · video · design · sport · software" />
+  <meta property="og:image" content="assets/khaled-rohaim.jpg" />
+  <meta name="theme-color" content="#e2e3e5" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e2e3e5'/%3E%3Crect x='7' y='13' width='50' height='30' rx='7' fill='%23fff' stroke='%23c9ccd0' stroke-width='3'/%3E%3Cpath d='M4 52h56' stroke='%234fc0e8' stroke-width='4' fill='none'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;500;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/wii.css" />
+</head>
+<body class="v-menu">
+
+  <!-- ===== the console screen (16:9, letterboxed into the viewport) ===== -->
+  <div class="tv" id="tv">
+    <div class="screen" id="screen">
+
+      <div class="scr" id="scr"><!-- menu · splash · grid render here --></div>
+
+      <!-- the shelf: wave line, orbs, clock -->
+      <footer class="dock" id="dock">
+        <svg class="dock-wave" viewBox="0 0 1920 331" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="shelf" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#eceef0"/>
+              <stop offset="1" stop-color="#dcdee1"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,35 C300,35 430,130 720,130 L1200,130 C1490,130 1620,35 1920,35 L1920,331 L0,331 Z" fill="url(#shelf)"/>
+          <path d="M0,35 C300,35 430,130 720,130 L1200,130 C1490,130 1620,35 1920,35"
+                fill="none" stroke="#5cc4e8" stroke-width="5"/>
+        </svg>
+
+        <button class="orb orb--l" id="orb-about" type="button" aria-label="about Cristian">
+          <span class="orb-face">
+            <svg class="orb-person" viewBox="0 0 44 44" aria-hidden="true">
+              <circle cx="22" cy="13" r="7"/>
+              <path d="M9 38c.8-8.3 5.2-13 13-13s12.2 4.7 13 13"/>
+            </svg>
+          </span>
+        </button>
+
+        <button class="sd" id="btn-sound" type="button" aria-label="toggle sound">
+          <svg viewBox="0 0 44 54" aria-hidden="true">
+            <path class="sd-speaker" d="M5 22h9l11-9v28l-11-9H5z"/>
+            <path class="sd-wave sd-wave--one" d="M30 20c2.6 3.8 2.6 10.2 0 14"/>
+            <path class="sd-wave sd-wave--two" d="M35 15c5.5 6.8 5.5 17.2 0 24"/>
+            <path class="sd-off" d="m29 20 12 14M41 20 29 34"/>
+          </svg>
+        </button>
+
+        <div class="clock" aria-hidden="true">
+          <div class="clock-time" id="clock-time"></div>
+          <div class="clock-date" id="clock-date">Fri 1/1</div>
+        </div>
+        <button class="dock-menu btn" type="button" data-home>MENU</button>
+
+        <button class="orb orb--r" id="orb-mail" type="button" aria-label="contact">
+          <span class="orb-face">
+            <svg class="orb-env" viewBox="0 0 44 32" aria-hidden="true">
+              <rect x="2" y="2" width="40" height="28" rx="3"/>
+              <path d="m3 5 19 14L41 5"/>
+            </svg>
+          </span>
+        </button>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- ===== case-study pages (normal scrolling document) ===== -->
+  <main class="doc" id="doc"></main>
+
+  <!-- ===== overlays ===== -->
+  <div class="ov" id="ov-about" aria-hidden="true" role="dialog" aria-modal="true" aria-label="about">
+    <div class="ov-panel">
+      <div class="ov-top">
+        <span class="ov-title">About</span>
+        <button class="btn btn--sm" type="button" data-close>Close</button>
+      </div>
+      <div id="about-body"></div>
+    </div>
+  </div>
+
+  <div class="ov" id="ov-contact" aria-hidden="true" role="dialog" aria-modal="true" aria-label="contact">
+    <div class="ov-panel">
+      <div class="ov-top">
+        <span class="ov-title">Contact</span>
+        <button class="btn btn--sm" type="button" data-close>Close</button>
+      </div>
+      <div id="contact-body"></div>
+    </div>
+  </div>
+
+  <div class="ov ov--player" id="ov-player" aria-hidden="true" role="dialog" aria-modal="true" aria-label="video player">
+    <div class="ov-panel player-panel">
+      <div class="player-frame-wrap">
+        <iframe id="player-frame" title="YouTube player" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="ov ov--image" id="ov-image" aria-hidden="true" role="dialog" aria-modal="true" aria-label="image preview">
+    <div class="ov-panel image-panel">
+      <button class="image-close" type="button" data-close aria-label="Close image preview">×</button>
+      <img id="image-preview" alt="">
+    </div>
+  </div>
+
+  <!-- CRT scanlines sit over everything -->
+  <div class="scan" aria-hidden="true"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/media-store.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
