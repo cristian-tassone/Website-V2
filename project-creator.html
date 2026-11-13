@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Creator — Cristian Tassone</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <main class="admin-shell brief-shell">
+    <header class="admin-bar">
+      <a class="admin-home" href="admin.html"><span class="home-mark" aria-hidden="true">←</span><span>Portfolio Admin</span></a>
+      <div class="admin-title">Project Creator</div>
+      <a class="admin-orb" href="index.html"><span class="home-mark" aria-hidden="true">⌂</span><span>Portfolio</span></a>
+    </header>
+
+    <section class="brief-intro">
+      <span class="eyebrow">Build brief</span>
+      <h1>New project</h1>
+      <p>Start a new project or load an existing one. Changes update the preview as you type; Save generates a compact handoff report for me.</p>
+      <p><a class="secondary-button" href="http://127.0.0.1:8126/asset-uploader.html">Upload hero and gallery assets</a></p>
+    </section>
+
+    <section class="project-picker">
+      <label>Editing project<select id="existing-project"><option value="">New project</option></select></label>
+      <p>Choose any existing project to load its current page content into the editor.</p>
+    </section>
+
+    <form id="brief-form" class="brief-card">
+      <input type="hidden" name="sourceSlug">
+      <div class="form-grid">
+        <label>Project title<input name="title" required placeholder="Khaled Rohaim — EP"></label>
+        <label>Channel<select name="channel" required><option value="music">Music</option><option value="video">Video</option><option value="design">Design</option><option value="sport">Sport</option><option value="software">Software</option></select></label>
+        <label>Year / date<input name="year" placeholder="2026"></label>
+        <label>Client<input name="client" placeholder="Client or self-initiated"></label>
+        <label class="wide">Your role<input name="role" placeholder="direction · edit · production"></label>
+        <label class="wide">One-line project summary<textarea name="context" rows="3" placeholder="The punchy sentence that appears at the top of the page."></textarea></label>
+        <label class="wide">About the project<textarea name="about" rows="6" placeholder="Write one paragraph per line. Tell me what you did, why, and the outcome."></textarea></label>
+
+        <fieldset class="brief-fieldset wide"><legend>Hero media <span>add later if needed</span></legend>
+          <label>Hero GIF / image filename or path<input name="hero" placeholder="Leave blank for now"></label>
+          <p class="field-help">Hero media is optional. We can add it after all project copy is complete.</p>
+        </fieldset>
+
+        <fieldset class="brief-fieldset wide"><legend>Spotify module <span>optional</span></legend>
+          <label>Spotify embed URL<input name="spotify" placeholder="https://open.spotify.com/embed/album/..."></label>
+          <label>Text beside the player<textarea name="spotifyText" rows="3" placeholder="What should people know about this release?"></textarea></label>
+        </fieldset>
+
+        <fieldset class="brief-fieldset wide"><legend>YouTube module <span>optional</span></legend>
+          <label>YouTube URL<input name="youtube" placeholder="https://www.youtube.com/watch?v=..."></label>
+          <label>Text beside the player<textarea name="youtubeText" rows="3" placeholder="What should people know about this video?"></textarea></label>
+        </fieldset>
+
+        <fieldset class="brief-fieldset wide"><legend>Story module <span>optional</span></legend>
+          <label>Story title<input name="storyTitle" placeholder="A short section heading"></label>
+          <label>Story text<textarea name="storyText" rows="4" placeholder="A wider thought, process note or result that needs its own space."></textarea></label>
+        </fieldset>
+
+        <fieldset class="brief-fieldset wide"><legend>Gallery <span>optional</span></legend>
+          <label>Image filenames / paths<textarea name="gallery" rows="4" placeholder="One image per line&#10;artwork-front.jpg&#10;campaign-still-01.png"></textarea></label>
+        </fieldset>
+
+        <fieldset class="brief-fieldset wide"><legend>External links <span>optional</span></legend>
+          <label>Links<textarea name="links" rows="3" placeholder="One per line: Label | https://example.com"></textarea></label>
+        </fieldset>
+      </div>
+      <footer class="brief-actions">
+        <button class="secondary-button" id="clear-form" type="button">Clear</button>
+        <span class="dialog-spacer"></span>
+        <button class="save-button" type="submit">Save &amp; build report</button>
+      </footer>
+    </form>
+
+    <section class="live-preview" aria-live="polite">
+      <header><div><span class="eyebrow">Live page preview</span><h2>As you edit</h2></div><span>Local preview only</span></header>
+      <div id="live-preview-content"></div>
+    </section>
+
+    <section class="brief-output" id="brief-output" hidden>
+      <header><div><span class="eyebrow">Ready for Codex</span><h2>Project build report</h2></div><span id="saved-status"></span></header>
+      <textarea id="report" readonly aria-label="Project build report"></textarea>
+      <div class="brief-actions"><button class="secondary-button" id="copy-report" type="button">Copy report</button><button class="save-button" id="download-report" type="button">Download .txt</button></div>
+    </section>
+  </main>
+  <script src="js/data.js"></script>
+  <script src="js/project-creator.js"></script>
+</body>
+</html>

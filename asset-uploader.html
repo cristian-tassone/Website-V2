@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Project Asset Uploader — Cristian Tassone</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/asset-uploader.css">
+</head>
+<body>
+  <main class="admin-shell uploader-shell">
+    <header class="admin-bar">
+      <a class="admin-home" href="project-creator.html"><span class="home-mark" aria-hidden="true">←</span><span>Project Creator</span></a>
+      <div class="admin-title">Asset Uploader</div>
+      <a class="admin-orb" href="index.html"><span class="home-mark" aria-hidden="true">⌂</span><span>Portfolio</span></a>
+    </header>
+
+    <section class="uploader-intro">
+      <span class="eyebrow">Project assets</span>
+      <h1>Drop in your visuals.</h1>
+      <p>Choose the project first. Add one hero GIF or image, then drag in as many gallery images as you need. Files are automatically saved in your portfolio’s <b>assets</b> folder with tidy names.</p>
+    </section>
+
+    <section class="asset-card">
+      <label class="asset-project">Which project are these for?
+        <select id="asset-project"><option value="">Choose a project…</option></select>
+      </label>
+      <p id="asset-help" class="asset-help">Add Hero and Gallery files, then stage that project in your batch. Repeat for as many projects as you like before uploading once.</p>
+
+      <div class="asset-zones">
+        <section class="asset-zone-wrap">
+          <div class="asset-zone" id="hero-zone" data-kind="hero" tabindex="0" role="button" aria-label="Choose hero GIF or image">
+            <input id="hero-input" type="file" accept="image/*,video/mp4,video/quicktime,.gif,.webp,.mp4,.mov" hidden>
+            <span class="zone-icon">✦</span><b>Hero media</b><span>Drop one GIF/image, MP4 or MOV here<br>Videos are converted to GIF automatically</span>
+          </div>
+          <div class="asset-files" id="hero-files"></div>
+        </section>
+        <section class="asset-zone-wrap">
+          <div class="asset-zone" id="gallery-zone" data-kind="gallery" tabindex="0" role="button" aria-label="Choose gallery images">
+            <input id="gallery-input" type="file" accept="image/*,video/mp4,video/quicktime,.gif,.webp,.mp4,.mov" multiple hidden>
+            <span class="zone-icon">▦</span><b>Gallery images</b><span>Drop images, MP4s or MOVs here<br>Videos are converted to GIF automatically</span>
+          </div>
+          <div class="asset-files" id="gallery-files"></div>
+        </section>
+      </div>
+
+      <button class="secondary-button asset-stage" id="stage-project" type="button" disabled>Add project to batch</button>
+      <p class="asset-status" id="asset-status" aria-live="polite"></p>
+    </section>
+
+    <section class="asset-batch" id="asset-batch" hidden>
+      <header><div><span class="eyebrow">Upload batch</span><h2>Ready to upload</h2></div><span id="batch-count"></span></header>
+      <div id="batch-list" class="batch-list"></div>
+      <button class="save-button asset-upload" id="upload-batch" type="button">Upload all projects &amp; build report</button>
+    </section>
+
+    <section class="asset-handoff" id="asset-handoff" hidden>
+      <span class="eyebrow">Send this to Codex</span>
+      <h2>Asset handoff ready</h2>
+      <p>The files are already in the right folder. Copy this and paste it into our chat; I’ll connect them to the project page.</p>
+      <pre id="handoff-text"></pre>
+      <button class="secondary-button" id="copy-handoff" type="button">Copy asset handoff</button>
+    </section>
+  </main>
+  <script src="js/data.js"></script>
+  <script src="js/asset-uploader.js"></script>
+</body>
+</html>

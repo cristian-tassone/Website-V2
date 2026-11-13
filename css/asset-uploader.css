@@ -1,0 +1,35 @@
+.uploader-shell { max-width: 1040px; }
+.uploader-intro { max-width: 52rem; margin: clamp(2rem, 6vw, 5rem) 0 2rem; }
+.uploader-intro h1 { margin: .25rem 0 .7rem; color: var(--ink-deep); font-size: clamp(2.8rem, 7vw, 5.5rem); line-height: .94; letter-spacing: -.065em; }
+.uploader-intro p { margin: 0; color: #707c83; font-size: clamp(.96rem, 1.5vw, 1.1rem); line-height: 1.65; }
+.asset-card, .asset-batch, .asset-handoff { padding: clamp(1.25rem, 3.4vw, 2.5rem); border-radius: 1.6rem; background: linear-gradient(145deg, rgba(255,255,255,.93), rgba(223,227,230,.86)); box-shadow: 0 0 0 3px rgba(155,217,239,.8), 0 1rem 2.3rem rgba(0,0,0,.11), inset 0 .3rem .6rem rgba(255,255,255,.85); }
+.asset-project { display: grid; gap: .48rem; max-width: 33rem; color: #667279; font-size: .78rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.asset-project select { width: 100%; padding: .78rem .95rem; border: 1px solid #b8c2c7; border-radius: .8rem; color: #536069; background: #fff; font-weight: 800; }
+.asset-help { margin: 1rem 0 1.5rem; color: #758087; font-size: .9rem; }
+.asset-zones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem; }
+.asset-zone { min-height: 15rem; display: grid; place-content: center; gap: .55rem; padding: 1.4rem; border: 2px dashed #82c9e6; border-radius: 1.25rem; color: #5d717b; text-align: center; background: rgba(255,255,255,.5); transition: background .15s ease, border-color .15s ease, transform .15s ease; cursor: pointer; }
+.asset-zone:hover, .asset-zone.is-dragging, .asset-zone:focus-visible { border-color: #3ba8d2; outline: none; background: rgba(235,249,255,.9); transform: translateY(-.12rem); }
+.zone-icon { color: #409ec4; font-size: 2.2rem; line-height: 1; }
+.asset-zone b { color: #59666d; font-size: 1.15rem; }
+.asset-zone span:last-child { color: #7e8a90; font-size: .84rem; line-height: 1.55; }
+.asset-files { display: grid; gap: .45rem; margin-top: .65rem; }
+.asset-file { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .56rem .65rem .56rem .8rem; border-radius: .7rem; color: #66747c; background: rgba(255,255,255,.72); font-size: .78rem; font-weight: 800; }
+.asset-file button { border: 0; color: #8b5555; background: transparent; font-weight: 900; }
+.asset-upload { display: block; width: min(100%, 22rem); margin: 1.65rem auto 0; padding: .85rem 1.4rem; }
+.asset-stage { display: block; width: min(100%, 22rem); margin: 1.65rem auto 0; padding: .82rem 1.4rem; }
+.asset-upload:disabled { cursor: not-allowed; opacity: .48; }
+.asset-status { min-height: 1.4rem; margin: .75rem 0 0; color: #68767d; font-size: .84rem; font-weight: 700; text-align: center; }
+.asset-batch, .asset-handoff { margin-top: 1.5rem; }
+.asset-batch header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.asset-batch h2 { margin: .2rem 0 0; color: var(--ink-deep); font-size: 1.8rem; }
+.asset-batch header > span { padding: .38rem .7rem; border-radius: 99px; color: #68767d; background: rgba(255,255,255,.72); font-size: .75rem; font-weight: 900; }
+.batch-list { display: grid; gap: .65rem; margin-top: 1.2rem; }
+.batch-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem .95rem; border-radius: .85rem; background: rgba(255,255,255,.65); }
+.batch-item b, .batch-item span { display: block; }
+.batch-item b { color: #58646b; font-size: .94rem; }
+.batch-item span { margin-top: .16rem; color: #879198; font-size: .76rem; font-weight: 700; }
+.batch-item button { border: 0; color: #8b5555; background: transparent; font-weight: 900; }
+.asset-handoff h2 { margin: .2rem 0 .45rem; color: var(--ink-deep); font-size: 1.8rem; }
+.asset-handoff p { color: #748087; line-height: 1.55; }
+.asset-handoff pre { overflow: auto; margin: 1rem 0; padding: 1rem; border-radius: .85rem; color: #4e5b62; background: rgba(255,255,255,.75); font: .82rem/1.55 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+@media (max-width: 680px) { .asset-zones { grid-template-columns: 1fr; } .asset-zone { min-height: 11rem; } }

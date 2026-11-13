@@ -7,8 +7,23 @@
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scr = document.getElementById("scr");
 const doc = document.getElementById("doc");
+const dockMenu = document.querySelector(".dock-menu");
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 const inCat = (cat) => PROJECTS.filter((p) => p.category === cat);
+document.documentElement.classList.toggle("hide-scanlines", localStorage.getItem("ct-scanlines") === "off");
+function setDockHomeControl() {
+  dockMenu.textContent = "HOME";
+  dockMenu.setAttribute("data-home", "");
+  dockMenu.removeAttribute("data-overlay-toggle");
+  dockMenu.removeAttribute("aria-pressed");
+}
+function setDockOverlayControl() {
+  const visible = !document.documentElement.classList.contains("hide-scanlines");
+  dockMenu.textContent = visible ? "OVERLAY ON" : "OVERLAY OFF";
+  dockMenu.removeAttribute("data-home");
+  dockMenu.setAttribute("data-overlay-toggle", "");
+  dockMenu.setAttribute("aria-pressed", String(visible));
+}
 /* Every project opened from a channel uses the shared feature-page system. */
 const isFeatureProject = () => true;
 
@@ -24,12 +39,9 @@ function projFace(p) {
   const c = CATEGORIES[p.category];
   const tileMedia = p.tileMedia || p.cover;
   if (tileMedia) {
-    const hoverPreview = p.tileHoverTitle
-      ? `<span class="tile-hover-title">${esc(p.tileHoverTitle)}</span>`
-      : `<span class="face-label">${esc(p.title)}</span>`;
-    return `<span class="face face--photo${p.tileHoverTitle ? " face--hover-preview" : ""}">
+    return `<span class="face face--photo">
               <img src="${tileMedia}" alt="" draggable="false">
-              ${hoverPreview}
+              <span class="face-label">${esc(p.tileTitle || p.title)}</span>
             </span>`;
   }
   return `<span class="face face--art" style="--g1:${c.g1};--g2:${c.g2}">
@@ -165,6 +177,7 @@ function pad(tiles) {
 function viewMenu() {
   document.title = "Cristian Tassone";
   document.body.className = "v-menu";
+  setDockOverlayControl();
   const tiles = CATEGORY_ORDER.map((id) =>
     `<a class="chan" href="#/${id}" data-tile="c:${id}" aria-label="${CATEGORIES[id].label} Channel">${catFace(id)}</a>`);
   scr.innerHTML = `<div class="grid">${pad(tiles)}</div>`;
@@ -174,6 +187,7 @@ function viewSplash(id) {
   const c = CATEGORIES[id];
   document.title = `${c.label} Channel — Cristian Tassone`;
   document.body.className = "v-splash";
+  setDockHomeControl();
   const list = inCat(id);
   const i = CATEGORY_ORDER.indexOf(id);
   const prev = CATEGORY_ORDER[(i + CATEGORY_ORDER.length - 1) % CATEGORY_ORDER.length];
@@ -192,7 +206,7 @@ function viewSplash(id) {
       <div class="splash-banner">${cells.join("")}</div>
       <p class="splash-sub">${esc(c.tagline)} — ${list.length} project${list.length === 1 ? "" : "s"}</p>
       <div class="splash-btns">
-        <button class="btn" type="button" data-home>Wii Menu</button>
+        <button class="btn" type="button" data-home>Home</button>
         <a class="btn" href="#/${id}/start" data-start>Start</a>
       </div>
       <a class="arw arw--l" href="#/${prev}" aria-label="${CATEGORIES[prev].label} Channel">${ARROW}</a>
@@ -205,6 +219,7 @@ function viewGrid(id) {
   document.title = `${c.label} — Cristian Tassone`;
   const reversing = document.body.classList.contains("is-feature-reversing");
   document.body.className = `v-grid v-grid--${id}${reversing ? " is-feature-reversing" : ""}`;
+  setDockHomeControl();
   const tiles = inCat(id).map((p) =>
     `<a class="chan" href="#/${id}/${p.slug}" data-tile="p:${p.slug}" aria-label="${esc(p.title)}">${projFace(p)}</a>`);
   const i = CATEGORY_ORDER.indexOf(id);
@@ -213,7 +228,7 @@ function viewGrid(id) {
   scr.innerHTML = `
     <div class="strip" style="--dot:${c.accent}">
       <span class="strip-name"><em>${c.label}</em> Channel</span>
-      ${id === "video" ? "" : `<button class="btn btn--sm" type="button" data-home>Wii Menu</button>`}
+      ${id === "video" ? "" : `<button class="btn btn--sm" type="button" data-home>Home</button>`}
     </div>
     <div class="grid grid--sub">${pad(tiles)}</div>
     <a class="arw arw--l" href="#/${prev}/start" aria-label="${CATEGORIES[prev].label}">${ARROW}</a>
@@ -228,6 +243,7 @@ function viewCase(p) {
   const c = CATEGORIES[p.category];
   document.title = `${p.title} — Cristian Tassone`;
   document.body.className = "v-case";
+  setDockHomeControl();
   const sib = inCat(p.category);
   const i = sib.indexOf(p);
   const prev = sib[(i + sib.length - 1) % sib.length];
@@ -246,7 +262,7 @@ function viewCase(p) {
     <article class="case" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
       <div class="case-bar">
         <a class="btn btn--sm" href="#/${p.category}/start" data-back>← ${c.label}</a>
-        <button class="btn btn--sm" type="button" data-home>Wii Menu</button>
+        <button class="btn btn--sm" type="button" data-home>Home</button>
       </div>
       <span class="case-band">${c.label} Channel</span>
       <h1>${esc(p.title)}</h1>
@@ -278,48 +294,67 @@ function viewFeatureCase(p) {
     .filter(([, value]) => value)
     .map(([label, value]) => `<div class="feature-fact"><span>${label}</span><b>${esc(value)}</b></div>`).join("");
   const description = (p.body || []).map((text) => `<p>${esc(text)}</p>`).join("");
-  const hasVideo = Boolean(p.videoUrl || (p.links || []).some((link) => /youtube\.com|youtu\.be/.test(link.url)));
-  const gallery = (p.gallery || []).map((src, index) => p.slug === "cover-art"
-    ? `<button class="cover-gallery-card" type="button" data-image-preview="${src}" data-image-alt="${esc(p.title)} artwork ${index + 1}">
-        <img src="${src}" alt="${esc(p.title)} artwork ${index + 1}" loading="lazy">
-      </button>`
-    : `<img src="${src}" alt="${esc(p.title)}" loading="lazy">`).join("");
+  const youtube = p.youtube || p.videoUrl;
+  const spotifyEmbed = (url) => url.includes("/embed/") ? url : url.replace("open.spotify.com/", "open.spotify.com/embed/");
+  const isSpotifyPlaylist = (url) => /open\.spotify\.com\/(?:embed\/)?playlist\//.test(url);
+  const mediaModules = [
+    ...(p.embed ? [{ type: "spotify", url: p.embed, heading: p.embedHeading, text: p.embedNote }] : []),
+    ...(youtube ? [{ type: "youtube", url: youtube, heading: p.youtubeHeading, text: p.youtubeNote }] : []),
+    ...(p.mediaModules || []),
+  ];
+  const media = mediaModules.map((module) => module.type === "youtube"
+    ? `<section class="project-media project-media--player project-media--youtube">
+        <div class="media-frame media-frame--youtube"><iframe src="${youtubeEmbed(module.url)}" title="${esc(p.title)} video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+        <aside class="media-copy"><p>${esc(module.text || "A visual companion piece that carries the atmosphere of the project into a different space.")}</p></aside>
+      </section>`
+    : `<section class="project-media project-media--player project-media--spotify">
+        <div class="media-frame media-frame--spotify${isSpotifyPlaylist(module.url) ? " media-frame--spotify-playlist" : ""}"><iframe src="${spotifyEmbed(module.url)}" title="${esc(p.title)} on Spotify" loading="lazy" allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>
+        <aside class="media-copy"><p>${esc(module.text || "A complete release, available to play here without leaving the project.")}</p></aside>
+      </section>`).join("");
+  const storyModules = (p.storyModules || []).map((module) => `<section class="project-media project-media--story">
+    <div class="story-card"><h2>${esc(module.title)}</h2>${String(module.text || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</div>
+  </section>`).join("");
+  const gallery = (p.gallery || []).map((src, index) => `<button class="project-gallery-card${p.slug === "cover-art" ? " cover-gallery-card" : ""}" type="button" data-image-preview="${src}" data-image-alt="${esc(p.title)} image ${index + 1}">
+      <img src="${src}" alt="${esc(p.title)} image ${index + 1}" loading="lazy">
+    </button>`).join("");
   const links = (p.links || []).map((link) => `<a class="btn btn--sm" href="${link.url}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>`).join("");
 
   document.title = `${p.title} — Cristian Tassone`;
   const morphing = document.body.classList.contains("is-feature-morphing");
   document.body.className = `v-case v-case--feature${morphing ? " is-feature-morphing" : ""}`;
+  setDockHomeControl();
   doc.innerHTML = `
     <article class="case case--feature" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
       <nav class="feature-nav" aria-label="Project navigation">
         <a class="feature-icon-btn" href="#/${p.category}/start" data-back aria-label="Back to ${c.label}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4 6.5 12l8 8M7.5 12h10"/></svg>
         </a>
-        <button class="feature-icon-btn" type="button" data-home aria-label="Main menu">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>
-        </button>
+        <div class="feature-nav-actions">
+          <button class="feature-icon-btn" type="button" data-home aria-label="Home">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>
+          </button>
+        </div>
       </nav>
-      <figure class="feature-banner${hero ? "" : " feature-banner--art"}" style="--g1:${c.g1};--g2:${c.g2}">
+      <figure class="feature-banner feature-banner--${p.slug}${hero ? "" : " feature-banner--art"}" style="--g1:${c.g1};--g2:${c.g2}">
         ${hero ? `<img src="${hero}" alt="${esc(p.title)}">` : ""}
         <figcaption>
           <h1>${esc(p.title)}</h1>
-          <p>${p.client ? `${esc(p.client)} · ` : ""}${esc(p.year)}</p>
+          ${p.client ? `<p>${esc(p.client)}</p>` : ""}
         </figcaption>
-        ${hasVideo ? `<button class="feature-play" type="button" data-watch="${esc(p.slug)}" aria-label="Play ${esc(p.title)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6z"/></svg>
-        </button>` : ""}
       </figure>
       <section class="feature-details">
         <div class="feature-story">
-          <h2>About the project</h2>
           <p class="feature-lead">${esc(p.context)}</p>
           ${description}
         </div>
         <aside class="feature-info" aria-label="Project details">${facts}</aside>
       </section>
-      ${p.embed || gallery || links ? `<section class="feature-extras">
-        ${p.embed ? `<div class="case-embed"><button class="btn btn--sm" data-embed="${p.embed}">▶ play</button></div>` : ""}
-        ${gallery ? `<div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${gallery}</div>` : ""}
+      ${media || gallery || storyModules || links ? `<section class="feature-extras">
+        ${media}
+        ${storyModules}
+        ${gallery ? `<section class="project-media project-media--gallery">
+          <div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${gallery}</div>
+        </section>` : ""}
         ${links ? `<div class="case-links">${links}</div>` : ""}
       </section>` : ""}
       <nav class="case-pn feature-pn">
@@ -384,6 +419,7 @@ function render(r) {
   else if (r.name === "splash") viewSplash(r.cat);
   else viewMenu();
 }
+
 const draw = () => render(parse());
 
 function go(hash) {
@@ -399,6 +435,14 @@ window.addEventListener("hashchange", () => {
 
 /* ---------------- interaction ---------------- */
 document.addEventListener("click", (e) => {
+  const overlayToggle = e.target.closest("[data-overlay-toggle]");
+  if (overlayToggle) {
+    const root = document.documentElement;
+    root.classList.toggle("hide-scanlines");
+    localStorage.setItem("ct-scanlines", root.classList.contains("hide-scanlines") ? "off" : "on");
+    setDockOverlayControl();
+    return;
+  }
   /* home, from anywhere */
   const home = e.target.closest("[data-home]");
   if (home) {
@@ -508,15 +552,15 @@ function youtubeEmbed(url) {
     const host = parsed.hostname.replace(/^www\./, "");
     const id = host === "youtu.be"
       ? parsed.pathname.slice(1)
-      : parsed.searchParams.get("v") || (parsed.pathname.startsWith("/embed/") ? parsed.pathname.split("/")[2] : "");
-    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0` : url;
+      : parsed.searchParams.get("v") || (parsed.pathname.startsWith("/embed/") || parsed.pathname.startsWith("/shorts/") ? parsed.pathname.split("/")[2] : "");
+    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=0&rel=0` : url;
   } catch (e) {
     return url;
   }
 }
 
 function openVideoPlayer(p) {
-  const source = p.videoUrl || (p.links || []).find((link) => /youtube\.com|youtu\.be/.test(link.url))?.url;
+  const source = p.videoUrl || p.youtube || (p.links || []).find((link) => /youtube\.com|youtu\.be/.test(link.url))?.url;
   if (!source) return;
   const frame = document.getElementById("player-frame");
   const playerWrap = document.querySelector(".player-frame-wrap");
