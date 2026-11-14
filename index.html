@@ -109,7 +109,16 @@
   <div class="ov ov--image" id="ov-image" aria-hidden="true" role="dialog" aria-modal="true" aria-label="image preview">
     <div class="ov-panel image-panel">
       <button class="image-close" type="button" data-close aria-label="Close image preview">×</button>
-      <img id="image-preview" alt="">
+      <div class="image-stage">
+        <button class="image-nav image-nav--prev" type="button" data-image-prev aria-label="Previous image">←</button>
+        <img id="image-preview" alt="">
+        <button class="image-nav image-nav--next" type="button" data-image-next aria-label="Next image">→</button>
+        <span class="image-count" id="image-count" aria-live="polite"></span>
+      </div>
+      <aside class="image-context" id="image-context" hidden>
+        <span>Image context</span>
+        <p id="image-context-copy"></p>
+      </aside>
     </div>
   </div>
 

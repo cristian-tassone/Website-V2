@@ -1,117 +1,54 @@
-const form = document.querySelector("#brief-form");
-const picker = document.querySelector("#existing-project");
-const preview = document.querySelector("#live-preview-content");
-const output = document.querySelector("#brief-output");
-const report = document.querySelector("#report");
-const status = document.querySelector("#saved-status");
-const key = "ct-project-creator-draft-v2";
-
-const text = (value) => String(value || "").trim();
-const lines = (value) => text(value).split(/\n+/).map(text).filter(Boolean);
-const field = (data, name) => text(data.get(name));
-const section = (label, value) => value ? `\n${label}\n${value}\n` : "";
-const escapeHtml = (value) => text(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
-
-function setField(name, value = "") { if (form.elements[name]) form.elements[name].value = value; }
-function formData() { return new FormData(form); }
-
-function populatePicker() {
-  const groups = Object.groupBy(PROJECTS, ({ category }) => category);
-  Object.entries(groups).forEach(([category, projects]) => {
-    const group = document.createElement("optgroup");
-    group.label = CATEGORIES[category].label;
-    projects.forEach((project) => group.append(new Option(project.title, project.slug)));
-    picker.append(group);
-  });
+const form = document.querySelector('#project-form'), picker = document.querySelector('#existing-project'), canvas = document.querySelector('#module-canvas');
+const preview = document.querySelector('#live-preview'), status = document.querySelector('#asset-status'), saveState = document.querySelector('#save-state');
+const galleryInput = document.querySelector('#gallery-input'), heroInput = document.querySelector('#hero-input'), report = document.querySelector('#report');
+const buildButton = document.querySelector('#build-report');
+const progress = { wrap: document.querySelector('#upload-progress'), label: document.querySelector('#upload-progress-label'), value: document.querySelector('#upload-progress-value'), detail: document.querySelector('#upload-progress-detail'), fill: document.querySelector('#upload-progress-fill'), track: document.querySelector('.upload-progress-track') };
+const draftKey = 'ct-workbench-draft-v4', legacyDraftKey = 'ct-workbench-draft-v3';
+const portfolioSignature = PROJECTS.map(project => JSON.stringify(project)).join('|');
+let modules = [], hero = null, pendingGallery = null, dragged = null;
+const text = v => String(v || '').trim(), esc = v => text(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const lines = v => text(v).split(/\n+/).map(text).filter(Boolean), uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+const label = t => ({overview:'Overview',media:'Media',story:'Story',gallery:'Gallery',links:'Links'})[t] || t;
+const set = (name,value='') => { if(form.elements[name]) form.elements[name].value=value; }, field = name => text(form.elements[name]?.value);
+const isVideo = f => f?.type?.startsWith('video/') || /\.(mp4|mov)$/i.test(f?.name || '');
+const ext = asset => isVideo(asset.file) ? '.gif' : /\.[a-z0-9]+$/i.exec(asset.file?.name || asset.path || '')?.[0] || '.jpg';
+const assetFromPath = item => { const path=typeof item==='string'?item:(item?.src||item?.path||''); return {id:uid(),path,name:path.split('/').pop(),url:path,file:null,caption:typeof item==='string'?'':(item?.context||item?.caption||item?.text||'')}; };
+const assetFromFile = file => ({id:uid(),path:'',name:file.name,url:URL.createObjectURL(file),file,caption:''});
+const bytes = value => !value ? '0 KB' : value >= 1024 * 1024 ? `${(value / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(value / 1024))} KB`;
+const clock = seconds => { const value = Math.max(0, Math.round(seconds || 0)); return value >= 60 ? `${Math.floor(value / 60)}m ${String(value % 60).padStart(2, '0')}s` : `${value}s`; };
+function setProgress({show=true,label='Preparing upload…',percent=0,detail='',working=false}={}){ const value=Math.max(0,Math.min(100,Number(percent)||0)); progress.wrap.hidden=!show; progress.wrap.classList.toggle('is-working',working); progress.label.textContent=label; progress.value.textContent=working?'Working…':`${Math.round(value)}%`; progress.detail.textContent=detail; progress.fill.style.width=`${value}%`; progress.track.setAttribute('aria-valuenow',String(Math.round(value))); }
+function setBuildBusy(busy){ buildButton.disabled=busy; buildButton.textContent=busy?'Saving assets…':'Build Markdown'; }
+function base(){ return Object.fromEntries(new FormData(form)); }
+function populatePicker(){ const groups=Object.groupBy(PROJECTS,({category})=>category); Object.entries(groups).forEach(([category,items])=>{const g=document.createElement('optgroup');g.label=CATEGORIES[category].label;items.forEach(p=>g.append(new Option(p.title,p.slug)));picker.append(g);}); }
+function moduleTemplate(m,i){ const val=n=>esc(m[n]); const controls=`<div class="module-controls"><button data-module-action="up" ${i===0?'disabled':''} aria-label="Move ${label(m.type)} up">↑</button><button data-module-action="down" ${i===modules.length-1?'disabled':''} aria-label="Move ${label(m.type)} down">↓</button><button class="remove" data-module-action="remove" aria-label="Remove ${label(m.type)}">×</button></div>`;
+  let fields='';
+  if(m.type==='overview') fields=`<label class="wide">One-line project summary<textarea data-field="summary" rows="3" placeholder="The punchy sentence at the top of the page.">${val('summary')}</textarea></label><label class="wide">About the project<textarea data-field="copy" rows="6" placeholder="Write a paragraph, then leave a blank line before the next.">${val('copy')}</textarea></label>`;
+  if(m.type==='media') fields=`<label>Player type<select data-field="kind"><option value="spotify" ${m.kind==='spotify'?'selected':''}>Spotify</option><option value="youtube" ${m.kind==='youtube'?'selected':''}>YouTube</option></select></label><label>Embed / video URL<input data-field="url" value="${val('url')}" placeholder="Paste a Spotify or YouTube link"></label><label class="wide">Text beside the player<textarea data-field="text" rows="3" placeholder="A short note to sit beside this player.">${val('text')}</textarea></label>`;
+  if(m.type==='story') fields=`<label>Story title<input data-field="title" value="${val('title')}" placeholder="A short section heading"></label><label class="wide">Story text<textarea data-field="text" rows="6" placeholder="A wider thought, process note or result.">${val('text')}</textarea></label>`;
+  if(m.type==='links') fields=`<label class="wide">External links<textarea data-field="items" rows="4" placeholder="One per line: Label | https://example.com">${val('items')}</textarea></label>`;
+  if(m.type==='gallery') fields=`<div class="wide"><button class="asset-drop" type="button" data-gallery-drop="${m.id}">Drop images, GIFs, MP4s or MOVs here — or click to choose</button><div class="asset-grid" data-gallery-grid="${m.id}">${assetTiles(m)}</div></div>`;
+  return `<section class="module-card" data-module-id="${m.id}"><header><span class="module-grip">⋮⋮</span><div><span>${String(i+1).padStart(2,'0')}</span><h2>${label(m.type)}</h2></div>${controls}</header><div class="module-fields">${fields}</div></section>`;
 }
-
-function loadProject(slug) {
-  if (!slug) { form.reset(); setField("sourceSlug", ""); updatePreview(); return; }
-  const project = PROJECTS.find((item) => item.slug === slug);
-  if (!project) return;
-  setField("sourceSlug", project.slug);
-  setField("title", project.title);
-  setField("channel", project.category);
-  setField("year", project.year);
-  setField("client", project.client);
-  setField("role", project.role);
-  setField("context", project.context);
-  setField("about", (project.body || []).join("\n\n"));
-  setField("hero", project.tileMedia || project.cover || "");
-  setField("spotify", project.embed || "");
-  setField("spotifyText", project.embedNote || "");
-  setField("youtube", project.youtube || project.videoUrl || "");
-  setField("youtubeText", project.youtubeNote || "");
-  setField("storyTitle", project.storyModules?.[0]?.title || "");
-  setField("storyText", project.storyModules?.[0]?.text || "");
-  setField("gallery", (project.gallery || []).join("\n"));
-  setField("links", (project.links || []).map((link) => `${link.label} | ${link.url}`).join("\n"));
-  saveDraft();
-  updatePreview();
-}
-
-function mediaPreview(kind, title, copy, reverse) {
-  if (!title && !copy) return "";
-  return `<section class="builder-media${reverse ? " builder-media--reverse" : ""}">
-    <div class="builder-frame builder-frame--${kind}"><span>${kind === "spotify" ? "Spotify player" : "YouTube player"}</span></div>
-    <div class="builder-copy"><h3>${escapeHtml(title || (kind === "spotify" ? "Music title" : "Video title"))}</h3><p>${escapeHtml(copy || "Add the accompanying text for this media module.")}</p></div>
-  </section>`;
-}
-
-function updatePreview() {
-  const data = formData();
-  const gallery = lines(data.get("gallery"));
-  const about = lines(data.get("about"));
-  const hero = field(data, "hero");
-  const media = [];
-  if (field(data, "spotify")) media.push(mediaPreview("spotify", field(data, "title"), field(data, "spotifyText"), true));
-  if (field(data, "youtube")) media.push(mediaPreview("youtube", "Video module", field(data, "youtubeText"), media.length % 2 === 0));
-  preview.innerHTML = `
-    <article class="builder-page">
-      <div class="builder-hero${hero ? " has-image" : ""}"${hero ? ` style="background-image:url('${escapeHtml(hero)}')"` : ""}>
-        <div><h2>${escapeHtml(field(data, "title") || "Project title")}</h2><p>${escapeHtml(field(data, "client") || "Client")} · ${escapeHtml(field(data, "year") || "Year")}</p></div>
-      </div>
-      <section class="builder-overview"><div><p class="builder-lead">${escapeHtml(field(data, "context") || "Your project summary appears here.")}</p>${about.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div><aside><span>Year</span><b>${escapeHtml(field(data, "year") || "—")}</b><span>Role</span><b>${escapeHtml(field(data, "role") || "—")}</b><span>Client</span><b>${escapeHtml(field(data, "client") || "—")}</b></aside></section>
-      ${media.join("")}
-      ${field(data, "storyTitle") || field(data, "storyText") ? `<section class="builder-story"><h3>${escapeHtml(field(data, "storyTitle") || "Story title")}</h3><p>${escapeHtml(field(data, "storyText") || "Story text goes here.")}</p></section>` : ""}
-      ${gallery.length ? `<section class="builder-gallery">${gallery.map((src) => `<img src="${escapeHtml(src)}" alt="Gallery preview">`).join("")}</section>` : ""}
-    </article>`;
-}
-
-function buildReport(data) {
-  const gallery = lines(data.get("gallery"));
-  const links = lines(data.get("links"));
-  const about = lines(data.get("about"));
-  const source = field(data, "sourceSlug");
-  return `PROJECT BUILD HANDOFF\n=====================\n\nMODE: ${source ? "Update existing project" : "New project"}\nEXISTING PROJECT: ${source || "None"}\n\nTITLE: ${field(data, "title")}\nCHANNEL: ${field(data, "channel")}\nYEAR: ${field(data, "year") || "Not supplied"}\nCLIENT: ${field(data, "client") || "Not supplied"}\nROLE: ${field(data, "role") || "Not supplied"}\n\nOVERVIEW\nSummary: ${field(data, "context") || "Not supplied"}\n${section("Overview copy", about.length ? about.map((paragraph, i) => `${i + 1}. ${paragraph}`).join("\n\n") : "")}\nMEDIA\nHero GIF / image: ${field(data, "hero") || "Add later"}\nSpotify embed: ${field(data, "spotify") || "None"}\nSpotify text: ${field(data, "spotifyText") || "None"}\nYouTube URL: ${field(data, "youtube") || "None"}\nYouTube text: ${field(data, "youtubeText") || "None"}\n${section("STORY", field(data, "storyTitle") || field(data, "storyText") ? `Title: ${field(data, "storyTitle") || "Untitled"}\nText: ${field(data, "storyText") || "Not supplied"}` : "")}GALLERY\n${gallery.length ? gallery.map((item) => `- ${item}`).join("\n") : "- Add later"}\n\nEXTERNAL LINKS\n${links.length ? links.map((item) => `- ${item}`).join("\n") : "- None"}\n\nBUILD REQUEST\nApply this handoff using the shared Overview, Media, Story and Gallery modules.\n`;
-}
-
-function saveDraft() { localStorage.setItem(key, JSON.stringify(Object.fromEntries(formData()))); }
-function restoreDraft() {
-  try {
-    const draft = JSON.parse(localStorage.getItem(key) || "null");
-    if (!draft) return;
-    Object.entries(draft).forEach(([name, value]) => setField(name, value));
-    picker.value = draft.sourceSlug || "";
-  } catch { /* A fresh blank brief is fine. */ }
-}
-
-picker.addEventListener("change", () => loadProject(picker.value));
-form.addEventListener("input", () => { saveDraft(); updatePreview(); });
-form.addEventListener("submit", (event) => {
-  event.preventDefault(); report.value = buildReport(formData()); output.hidden = false;
-  status.textContent = "Saved locally"; output.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-document.querySelector("#copy-report").addEventListener("click", async () => {
-  await navigator.clipboard.writeText(report.value); status.textContent = "Copied — paste it into our chat";
-});
-document.querySelector("#download-report").addEventListener("click", () => {
-  const filename = (field(formData(), "title") || "project").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-  const blob = new Blob([report.value], { type: "text/markdown" }); const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob); link.download = `${filename}-handoff.md`; link.click(); URL.revokeObjectURL(link.href);
-});
-document.querySelector("#clear-form").addEventListener("click", () => { form.reset(); picker.value = ""; output.hidden = true; localStorage.removeItem(key); updatePreview(); });
-
-populatePicker();
-restoreDraft();
-updatePreview();
+function assetTiles(m){ return (m.assets||[]).map((a,i)=>`<div class="asset-entry"><div class="asset-thumb" draggable="true" data-asset-id="${a.id}" data-gallery-id="${m.id}" data-asset-index="${i}"><img src="${a.url}" alt="${esc(a.name)}"><span class="asset-label">${esc(a.name)}</span><div class="asset-overlay"><div class="asset-order"><button data-asset-action="left" aria-label="Move image left">←</button><button data-asset-action="right" aria-label="Move image right">→</button></div><button data-asset-action="preview" aria-label="Preview image">⌕</button><button class="asset-delete" data-asset-action="remove" aria-label="Remove image">×</button></div></div><label class="asset-caption"><span>Image context</span><textarea rows="2" data-asset-caption="${a.id}" placeholder="Optional sentence for the full-screen viewer">${esc(a.caption||'')}</textarea></label></div>`).join(''); }
+function renderModules(){ document.querySelector('#module-count').textContent=`${modules.length} module${modules.length===1?'':'s'}`; canvas.innerHTML=modules.length?modules.map(moduleTemplate).join(''):`<p class="canvas-empty">Choose a module above to begin. Your page stays intentionally blank until you add one.</p>`; }
+function sync(){ modules=[...canvas.querySelectorAll('.module-card')].map(card=>{const old=modules.find(m=>m.id===card.dataset.moduleId)||{};const next={...old};card.querySelectorAll('[data-field]').forEach(input=>next[input.dataset.field]=input.value);if(next.type==='gallery')next.assets=(next.assets||[]).map(asset=>({...asset,caption:card.querySelector(`[data-asset-caption="${asset.id}"]`)?.value??asset.caption??''}));return next;}); }
+function addModule(type,values={}){ sync(); modules.push({id:uid(),type,kind:type==='media'?'spotify':'',assets:type==='gallery'?[]:undefined,...values});renderModules();saveDraft();updatePreview();canvas.lastElementChild?.scrollIntoView({behavior:'smooth',block:'center'}); }
+function legacyProjectModules(project){ return [{type:'overview'},...(project.embed?[{type:'media',kind:'spotify',url:project.embed,text:project.embedNote}]:[]),...(project.youtube||project.videoUrl?[{type:'media',kind:'youtube',url:project.youtube||project.videoUrl,text:project.youtubeNote}]:[]),...(project.mediaModules||[]).map(item=>({type:'media',kind:item.type,url:item.url,text:item.text})),...(project.storyModules||[]).map(item=>({type:'story',title:item.title,text:item.text})),...(project.gallery?.length?[{type:'gallery',items:project.gallery}]:[]),...(project.links?.length?[{type:'links',items:project.links}]:[])]; }
+function projectModuleList(project){ const saved=Array.isArray(project.pageModules)&&project.pageModules.length?project.pageModules.map(item=>({...item})):legacyProjectModules(project); const legacyStories=Array.isArray(project.storyModules)?project.storyModules:[]; legacyStories.forEach(story=>{const alreadyIncluded=saved.some(item=>item.type==='story'&&item.title===story.title&&item.text===story.text);if(!alreadyIncluded)saved.push({type:'story',title:story.title||'',text:story.text||''});}); return saved; }
+function updateHero(){const img=document.querySelector('#hero-preview'),empty=document.querySelector('.hero-empty'),tools=document.querySelector('#hero-tools');if(hero){img.src=hero.url;img.hidden=false;empty.hidden=true;tools.hidden=false;document.querySelector('#hero-name').textContent=hero.name;}else{img.removeAttribute('src');img.hidden=true;empty.hidden=false;tools.hidden=true;}}
+function updatePreview(){sync();const title=field('title')||'Project title', heroStyle=hero?` style="background-image:url('${esc(hero.url)}')"`:'';const blocks=modules.map(m=>{if(m.type==='overview')return `<section class="pv-overview"><p class="lead">${esc(m.summary||'Your project summary appears here.')}</p>${String(m.copy||'').split(/\n\s*\n/).filter(Boolean).map(p=>`<p class="copy">${esc(p)}</p>`).join('')}<div class="pv-facts"><span>${esc(field('year')||'Year')}</span><span>${esc(field('role')||'Role')}</span><span>${esc(field('client')||'Client')}</span></div></section>`;if(m.type==='media'){const kind=m.kind||'spotify';return `<section class="pv-media"><div class="pv-player ${kind}">${kind==='spotify'?'Spotify player':'YouTube player'}</div></section><div class="pv-media-copy"><p>${esc(m.text||'Add accompanying text.')}</p></div>`;}if(m.type==='story'){const paragraphs=String(m.text||'Story text goes here.').split(/\n\s*\n/).filter(Boolean).map(paragraph=>`<p>${esc(paragraph)}</p>`).join('');return `<section class="pv-story"><h3>${esc(m.title||'Story title')}</h3>${paragraphs}</section>`;}if(m.type==='gallery'){const imgs=(m.assets||[]).map(a=>`<img src="${a.url}" alt="">`).join('');return imgs?`<section class="pv-gallery">${imgs}</section>`:'';}return ''}).join('');document.querySelector('#preview-title').textContent=title;document.querySelector('#canvas-project-title').textContent=title;preview.innerHTML=`<article><div class="pv-hero"${heroStyle}><div><h2>${esc(title)}</h2><p>${esc(field('client')||'Client')} · ${esc(field('year')||'Year')}</p></div></div>${blocks||'<p class="pv-empty">Your page composition will appear here as you add modules.</p>'}</article>`;}
+function saveDraft(){sync();const safeModules=modules.map(m=>({...m,assets:(m.assets||[]).filter(a=>a.path).map(a=>({id:a.id,path:a.path,name:a.name,url:a.path,file:null,caption:a.caption||''}))}));localStorage.setItem(draftKey,JSON.stringify({portfolioSignature,base:base(),modules:safeModules,hero:hero?.path?{path:hero.path,name:hero.name,url:hero.path}:null}));saveState.textContent='Draft saved locally';}
+function newBlank(){form.reset();set('sourceSlug','');set('slug','');set('tileTitle','');picker.value='';heroInput.value='';modules=[];hero=null;renderModules();updateHero();updatePreview();saveDraft();}
+function loadProject(slug){if(!slug)return newBlank();const p=PROJECTS.find(x=>x.slug===slug);if(!p)return;form.reset();heroInput.value='';hero=null;set('sourceSlug',p.slug);set('slug',p.slug);set('title',p.title);set('tileTitle',p.tileTitle||p.tileHoverTitle||p.title);set('channel',p.category);set('year',p.year);set('client',p.client);set('role',p.role);hero=(p.cover||p.tileMedia)?assetFromPath(p.cover||p.tileMedia):null;modules=[];projectModuleList(p).forEach(x=>{if(x.type==='overview')modules.push({id:uid(),type:'overview',summary:p.context||'',copy:(p.body||[]).join('\n\n')});else if(x.type==='media')modules.push({id:uid(),type:'media',kind:x.kind||'spotify',url:x.url||'',text:x.text||''});else if(x.type==='story')modules.push({id:uid(),type:'story',title:x.title||'',text:x.text||''});else if(x.type==='gallery')modules.push({id:uid(),type:'gallery',assets:(x.items||[]).map(assetFromPath)});else if(x.type==='links')modules.push({id:uid(),type:'links',items:(x.items||[]).map(l=>typeof l==='string'?l:`${l.label} | ${l.url}`).join('\n')});});renderModules();updateHero();saveDraft();updatePreview();}
+function acceptGallery(id,files){const m=modules.find(x=>x.id===id);if(!m)return;const valid=[...files].filter(f=>f.type.startsWith('image/')||f.type.startsWith('video/')||/\.(gif|webp|mp4|mov)$/i.test(f.name));m.assets.push(...valid.map(assetFromFile));renderModules();saveDraft();updatePreview();}
+function uploadAsset(asset,name,crop=false,onProgress=()=>{}){if(!asset.file)return Promise.resolve(asset.path);const job=`upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;const params=new URLSearchParams({name,job});if(isVideo(asset.file))params.set('convert','gif');if(crop)params.set('crop','hero');return new Promise((resolve,reject)=>{const request=new XMLHttpRequest();let poll=null,finished=false;const stop=()=>{if(poll)window.clearInterval(poll);};const check=async()=>{try{const response=await fetch(`/api/assets-progress?job=${encodeURIComponent(job)}`);if(!response.ok)return;const state=await response.json();if(state.phase==='converting')onProgress({phase:'converting',percent:state.percent||0,duration:state.duration||0});if(state.phase==='error'){finished=true;stop();reject(new Error(state.error||'Could not process asset'));}}catch{}};request.open('POST',`/api/assets?${params}`);request.setRequestHeader('Content-Type',asset.file.type||'application/octet-stream');request.upload.addEventListener('progress',event=>{if(event.lengthComputable)onProgress({phase:'uploading',percent:event.loaded/event.total*100,loaded:event.loaded,total:event.total});});request.addEventListener('load',()=>{finished=true;stop();if(request.status<200||request.status>=300)return reject(new Error(request.responseText||'Could not save asset'));try{const result=JSON.parse(request.responseText);asset.path=result.path;asset.url=result.path;asset.file=null;onProgress({phase:'complete',percent:100});resolve(result.path);}catch(error){reject(error);}});request.addEventListener('error',()=>{finished=true;stop();reject(new Error('Network error while uploading asset'))});poll=window.setInterval(()=>{if(!finished)check();},350);onProgress({phase:'uploading',percent:0,loaded:0,total:asset.file.size});request.send(asset.file);});}
+async function saveAssets(){sync();const slug=(field('slug')||field('sourceSlug')||field('title')||'project').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');const pending=[];if(hero?.file)pending.push({asset:hero,name:`${slug}-hero${ext(hero)}`,crop:true,label:'hero GIF'});modules.forEach((m,mi)=>{if(m.type==='gallery')(m.assets||[]).forEach((asset,ai)=>{if(asset.file)pending.push({asset,name:`${slug}-gallery-${mi+1}-${ai+1}${ext(asset)}`,crop:false,label:`gallery image ${ai+1}`});});});if(!pending.length){status.textContent='No new assets to save. Your Markdown handoff is ready.';setProgress({show:false});return;}setBuildBusy(true);try{for(let index=0;index<pending.length;index++){const item=pending[index],started=performance.now(),position=`${index+1} of ${pending.length}`;status.textContent=`Saving ${position}: ${item.label}…`;setProgress({label:`${position} — Preparing ${item.label}`,percent:0,detail:`${bytes(item.asset.file.size)} ready to upload.`});await uploadAsset(item.asset,item.name,item.crop,info=>{const elapsed=(performance.now()-started)/1000;if(info.phase==='uploading'){const remaining=info.percent>2?elapsed*(100-info.percent)/info.percent:0;setProgress({label:`${position} — Uploading ${item.label}`,percent:info.percent,detail:`${bytes(info.loaded||0)} of ${bytes(info.total||item.asset.file.size)} uploaded${remaining?` · about ${clock(remaining)} remaining`:''}`});}else if(info.phase==='converting'){const detail=info.percent?`Optimising for the site · ${Math.round(info.percent)}% through the GIF.`:`Optimising GIF frames for the site…`;setProgress({label:`${position} — Processing ${item.label}`,percent:info.percent,detail,working:!info.percent});}else if(info.phase==='complete'){setProgress({label:`${position} — ${item.label} saved`,percent:100,detail:'Ready for the next asset.'});}});}status.textContent='Assets saved. Your Markdown handoff is ready.';setProgress({label:'All assets saved',percent:100,detail:'Your Markdown handoff is ready to copy.'});renderModules();updateHero();saveDraft();updatePreview();}finally{setBuildBusy(false);}}
+function reportText(){sync();const source=field('sourceSlug'),mods=modules.map((m,i)=>{const h=`${i+1}. ${label(m.type).toUpperCase()}`;if(m.type==='overview')return `${h}\nSummary: ${text(m.summary)||'Not supplied'}\nAbout copy:\n${text(m.copy)||'Not supplied'}`;if(m.type==='media')return `${h} — ${(m.kind||'spotify').toUpperCase()}\nURL: ${text(m.url)||'Not supplied'}\nText: ${text(m.text)||'Not supplied'}`;if(m.type==='story')return `${h}\nTitle: ${text(m.title)||'Untitled'}\nText: ${text(m.text)||'Not supplied'}`;if(m.type==='gallery')return `${h}\n${m.assets?.length?m.assets.map(a=>`- ${a.path||a.name}${text(a.caption)?`\n  Context: ${text(a.caption)}`:''}`).join('\n'):'- Add later'}`;return `${h}\n${lines(m.items).length?lines(m.items).map(x=>`- ${x}`).join('\n'):'- None'}`;}).join('\n\n');return `PROJECT BUILD HANDOFF\n=====================\n\nMODE: ${source?'Update existing project':'New project'}\nEXISTING PROJECT: ${source||'None'}\n\nTITLE: ${field('title')}\nSLUG: ${field('slug')||'Not supplied'}\nTILE / HOVER TITLE: ${field('tileTitle')||field('title')}\nCHANNEL: ${field('channel')}\nYEAR: ${field('year')||'Not supplied'}\nCLIENT: ${field('client')||'Not supplied'}\nROLE: ${field('role')||'Not supplied'}\nHERO GIF / image: ${hero?.path||'Add later'}\n\nPAGE MODULES — USE THIS ORDER\n=============================\n\n${mods||'No modules added yet.'}\n\nBUILD REQUEST\nApply this handoff in the exact module order above.\n`;}
+document.querySelectorAll('[data-add-module]').forEach(b=>b.addEventListener('click',()=>addModule(b.dataset.addModule)));
+canvas.addEventListener('click',e=>{const mod=e.target.closest('[data-module-action]');if(mod){sync();const n=modules.findIndex(m=>m.id===mod.closest('.module-card').dataset.moduleId),action=mod.dataset.moduleAction;if(action==='remove')modules.splice(n,1);if(action==='up'&&n>0)[modules[n-1],modules[n]]=[modules[n],modules[n-1]];if(action==='down'&&n<modules.length-1)[modules[n+1],modules[n]]=[modules[n],modules[n+1]];renderModules();saveDraft();updatePreview();return;}const drop=e.target.closest('[data-gallery-drop]');if(drop){pendingGallery=drop.dataset.galleryDrop;galleryInput.click();return;}const action=e.target.closest('[data-asset-action]');if(!action)return;const tile=action.closest('.asset-thumb'),m=modules.find(x=>x.id===tile.dataset.galleryId),n=Number(tile.dataset.assetIndex),kind=action.dataset.assetAction;if(kind==='remove')m.assets.splice(n,1);if(kind==='left'&&n>0)[m.assets[n-1],m.assets[n]]=[m.assets[n],m.assets[n-1]];if(kind==='right'&&n<m.assets.length-1)[m.assets[n+1],m.assets[n]]=[m.assets[n],m.assets[n+1]];if(kind==='preview'){document.querySelector('#lightbox-image').src=m.assets[n].url;document.querySelector('#asset-lightbox').showModal();return;}renderModules();saveDraft();updatePreview();});
+canvas.addEventListener('dragstart',e=>{const tile=e.target.closest('.asset-thumb');if(!tile)return;dragged={gallery:tile.dataset.galleryId,index:Number(tile.dataset.assetIndex)};tile.classList.add('is-dragging');});canvas.addEventListener('dragend',e=>e.target.closest('.asset-thumb')?.classList.remove('is-dragging'));canvas.addEventListener('dragover',e=>{if(e.target.closest('.asset-thumb'))e.preventDefault();});canvas.addEventListener('drop',e=>{const tile=e.target.closest('.asset-thumb');if(!tile||!dragged)return;e.preventDefault();const target=Number(tile.dataset.assetIndex);if(dragged.gallery===tile.dataset.galleryId&&target!==dragged.index){const m=modules.find(x=>x.id===dragged.gallery);const [item]=m.assets.splice(dragged.index,1);m.assets.splice(target,0,item);renderModules();saveDraft();updatePreview();}dragged=null;});
+canvas.addEventListener('dragover',e=>{const zone=e.target.closest('[data-gallery-drop]');if(zone){e.preventDefault();zone.classList.add('is-dragging');}});canvas.addEventListener('dragleave',e=>e.target.closest('[data-gallery-drop]')?.classList.remove('is-dragging'));canvas.addEventListener('drop',e=>{const zone=e.target.closest('[data-gallery-drop]');if(zone){e.preventDefault();zone.classList.remove('is-dragging');acceptGallery(zone.dataset.galleryDrop,e.dataTransfer.files);}});
+heroInput.addEventListener('change',()=>{if(heroInput.files[0]){hero=assetFromFile(heroInput.files[0]);updateHero();saveDraft();updatePreview();}});document.querySelector('#hero-drop').addEventListener('click',()=>heroInput.click());['dragenter','dragover'].forEach(n=>document.querySelector('#hero-drop').addEventListener(n,e=>{e.preventDefault();e.currentTarget.classList.add('is-dragging');}));document.querySelector('#hero-drop').addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('is-dragging');if(e.dataTransfer.files[0]){hero=assetFromFile(e.dataTransfer.files[0]);updateHero();saveDraft();updatePreview();}});galleryInput.addEventListener('change',()=>{if(pendingGallery)acceptGallery(pendingGallery,galleryInput.files);galleryInput.value='';});
+canvas.addEventListener('input',event=>{if(event.target.matches('[data-field],[data-asset-caption]')){sync();saveDraft();updatePreview();}});
+form.addEventListener('input',event=>{if(event.target.name==='title'&&!field('sourceSlug')&&!field('slug'))set('slug',field('title').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''));saveDraft();updatePreview();});picker.addEventListener('change',()=>loadProject(picker.value));document.querySelector('#refresh-project').addEventListener('click',()=>{const source=field('sourceSlug')||picker.value;if(source){loadProject(source);status.textContent='Project refreshed from the portfolio.';}});document.querySelector('#new-project').addEventListener('click',newBlank);document.querySelector('#hero-remove').addEventListener('click',()=>{hero=null;heroInput.value='';updateHero();saveDraft();updatePreview();});document.querySelector('#refresh-preview').addEventListener('click',updatePreview);buildButton.addEventListener('click',async()=>{try{await saveAssets();report.value=reportText();document.querySelector('#report-dialog').showModal();}catch(error){status.textContent=`Could not save assets: ${error.message}`;setProgress({label:'Asset save failed',percent:0,detail:error.message});}});document.querySelector('#copy-report').addEventListener('click',async()=>{await navigator.clipboard.writeText(report.value);status.textContent='Report copied — paste it into our chat.';});document.querySelector('#download-report').addEventListener('click',()=>{const blob=new Blob([report.value],{type:'text/markdown'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(field('title')||'project').replace(/[^a-z0-9]+/gi,'-').toLowerCase()}-handoff.md`;a.click();URL.revokeObjectURL(a.href);});document.querySelector('[data-close-lightbox]').addEventListener('click',()=>document.querySelector('#asset-lightbox').close());document.querySelector('[data-close-report]').addEventListener('click',()=>document.querySelector('#report-dialog').close());
+populatePicker();try{const d=JSON.parse(localStorage.getItem(draftKey)||localStorage.getItem(legacyDraftKey)||'null');if(d?.base){const isExisting=Boolean(d.base.sourceSlug);if(isExisting&&d.portfolioSignature!==portfolioSignature){picker.value=d.base.sourceSlug||'';loadProject(d.base.sourceSlug);status.textContent='Project refreshed from the latest portfolio data.';}else{Object.entries(d.base).forEach(([k,v])=>set(k,v));modules=(d.modules||[]).map(m=>({...m,assets:(m.assets||[]).map(a=>({...a,url:a.path,file:null}))}));hero=d.hero?assetFromPath(d.hero.path):null;picker.value=d.base.sourceSlug||'';}}}catch{}renderModules();updateHero();updatePreview();

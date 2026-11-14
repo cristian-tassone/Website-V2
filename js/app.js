@@ -302,22 +302,54 @@ function viewFeatureCase(p) {
     ...(youtube ? [{ type: "youtube", url: youtube, heading: p.youtubeHeading, text: p.youtubeNote }] : []),
     ...(p.mediaModules || []),
   ];
-  const media = mediaModules.map((module) => module.type === "youtube"
-    ? `<section class="project-media project-media--player project-media--youtube">
-        <div class="media-frame media-frame--youtube"><iframe src="${youtubeEmbed(module.url)}" title="${esc(p.title)} video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+  let mediaPosition = 0;
+  const renderMedia = (module) => {
+    const layoutClass = mediaPosition++ % 2 === 0 ? " project-media--flipped" : "";
+    const kind = module.type === "media" ? module.kind : module.type;
+    const url = String(module.url || "").trim();
+    return kind === "youtube"
+    ? `<section class="project-media project-media--player project-media--youtube${layoutClass}">
+        <div class="media-frame media-frame--youtube">${url ? `<iframe src="${youtubeEmbed(url)}" title="${esc(p.title)} video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>` : `<div class="media-placeholder"><span>Video coming soon</span></div>`}</div>
         <aside class="media-copy"><p>${esc(module.text || "A visual companion piece that carries the atmosphere of the project into a different space.")}</p></aside>
       </section>`
-    : `<section class="project-media project-media--player project-media--spotify">
+    : `<section class="project-media project-media--player project-media--spotify${layoutClass}">
         <div class="media-frame media-frame--spotify${isSpotifyPlaylist(module.url) ? " media-frame--spotify-playlist" : ""}"><iframe src="${spotifyEmbed(module.url)}" title="${esc(p.title)} on Spotify" loading="lazy" allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>
         <aside class="media-copy"><p>${esc(module.text || "A complete release, available to play here without leaving the project.")}</p></aside>
-      </section>`).join("");
-  const storyModules = (p.storyModules || []).map((module) => `<section class="project-media project-media--story">
+      </section>`;
+  };
+  const renderStory = (module) => `<section class="project-media project-media--story">
     <div class="story-card"><h2>${esc(module.title)}</h2>${String(module.text || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</div>
-  </section>`).join("");
-  const gallery = (p.gallery || []).map((src, index) => `<button class="project-gallery-card${p.slug === "cover-art" ? " cover-gallery-card" : ""}" type="button" data-image-preview="${src}" data-image-alt="${esc(p.title)} image ${index + 1}">
-      <img src="${src}" alt="${esc(p.title)} image ${index + 1}" loading="lazy">
+  </section>`;
+  const renderGallery = (images) => {
+    const allImages = (images || []).map((item) => typeof item === "string" ? { src: item, context: "" } : { src: item?.src || item?.path || "", context: item?.context || item?.caption || item?.text || "" }).filter((item) => item.src);
+    const visibleImages = allImages.slice(0, 6);
+    const remaining = Math.max(0, allImages.length - visibleImages.length);
+    const galleryData = encodeURIComponent(JSON.stringify(allImages));
+    const cards = visibleImages.map((image, index) => `<button class="project-gallery-card${p.slug === "cover-art" ? " cover-gallery-card" : ""}${remaining && index === visibleImages.length - 1 ? " project-gallery-card--more" : ""}" type="button" data-image-preview="${esc(image.src)}" data-image-alt="${esc(p.title)} image ${index + 1}" data-gallery="${galleryData}" data-gallery-index="${index}">
+      <img src="${esc(image.src)}" alt="${esc(p.title)} image ${index + 1}" loading="lazy">
+      ${remaining && index === visibleImages.length - 1 ? `<span class="gallery-more-count">+${remaining}</span>` : ""}
     </button>`).join("");
-  const links = (p.links || []).map((link) => `<a class="btn btn--sm" href="${link.url}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>`).join("");
+    return cards ? `<section class="project-media project-media--gallery"><div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${cards}</div></section>` : "";
+  };
+  const renderLinks = (items) => {
+    const links = (items || []).map((link) => `<a class="btn btn--sm" href="${link.url}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>`).join("");
+    return links ? `<div class="case-links">${links}</div>` : "";
+  };
+  const defaultExtras = !p.pageModules ? [
+    ...mediaModules.map(renderMedia),
+    ...(p.storyModules || []).map(renderStory),
+    renderGallery(p.gallery),
+    renderLinks(p.links),
+  ].join("") : "";
+  const orderedExtras = p.pageModules
+    ? p.pageModules.map((module) => {
+      if (module.type === "media") return renderMedia(module);
+      if (module.type === "story") return renderStory(module);
+      if (module.type === "gallery") return renderGallery(module.items);
+      if (module.type === "links") return renderLinks(module.items);
+      return "";
+    }).join("")
+    : defaultExtras;
 
   document.title = `${p.title} — Cristian Tassone`;
   const morphing = document.body.classList.contains("is-feature-morphing");
@@ -349,14 +381,7 @@ function viewFeatureCase(p) {
         </div>
         <aside class="feature-info" aria-label="Project details">${facts}</aside>
       </section>
-      ${media || gallery || storyModules || links ? `<section class="feature-extras">
-        ${media}
-        ${storyModules}
-        ${gallery ? `<section class="project-media project-media--gallery">
-          <div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${gallery}</div>
-        </section>` : ""}
-        ${links ? `<div class="case-links">${links}</div>` : ""}
-      </section>` : ""}
+      ${orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : ""}
       <nav class="case-pn feature-pn">
         <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
         <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
@@ -553,7 +578,8 @@ function youtubeEmbed(url) {
     const id = host === "youtu.be"
       ? parsed.pathname.slice(1)
       : parsed.searchParams.get("v") || (parsed.pathname.startsWith("/embed/") || parsed.pathname.startsWith("/shorts/") ? parsed.pathname.split("/")[2] : "");
-    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=0&rel=0` : url;
+    const origin = /^https?:$/.test(window.location.protocol) ? `&origin=${encodeURIComponent(window.location.origin)}` : "";
+    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=0&rel=0${origin}` : url;
   } catch (e) {
     return url;
   }
@@ -571,6 +597,38 @@ function openVideoPlayer(p) {
   overlay("ov-player", true);
 }
 
+let imageGallery = [];
+let imageGalleryIndex = 0;
+let imageGalleryAlt = "Artwork preview";
+
+function paintImageGallery() {
+  const preview = document.getElementById("image-preview");
+  const total = imageGallery.length;
+  const active = imageGallery[imageGalleryIndex] || { src: "", context: "" };
+  preview.src = active.src;
+  preview.alt = total > 1 ? `${imageGalleryAlt} — image ${imageGalleryIndex + 1} of ${total}` : imageGalleryAlt;
+  document.getElementById("image-count").textContent = total > 1 ? `${imageGalleryIndex + 1} / ${total}` : "";
+  const context = document.getElementById("image-context");
+  const contextCopy = document.getElementById("image-context-copy");
+  context.hidden = !active.context;
+  contextCopy.textContent = active.context || "";
+  document.querySelectorAll("[data-image-prev], [data-image-next]").forEach((button) => { button.hidden = total < 2; });
+}
+
+function openImageGallery(images, index, alt) {
+  imageGallery = images.map((item) => typeof item === "string" ? { src: item, context: "" } : { src: item?.src || item?.path || "", context: item?.context || item?.caption || item?.text || "" }).filter((item) => item.src);
+  imageGalleryIndex = Math.max(0, Math.min(Number.isFinite(index) ? index : 0, imageGallery.length - 1));
+  imageGalleryAlt = alt;
+  paintImageGallery();
+  overlay("ov-image", true);
+}
+
+function cycleGallery(step) {
+  if (imageGallery.length < 2) return;
+  imageGalleryIndex = (imageGalleryIndex + step + imageGallery.length) % imageGallery.length;
+  paintImageGallery();
+}
+
 document.getElementById("orb-about").addEventListener("click", () => overlay("ov-about", true));
 document.getElementById("orb-mail").addEventListener("click", () => overlay("ov-contact", true));
 document.querySelectorAll(".ov").forEach((ov) => {
@@ -584,14 +642,19 @@ document.addEventListener("click", (e) => {
     return;
   }
   const image = e.target.closest("[data-image-preview]");
-  if (!image) return;
-  const preview = document.getElementById("image-preview");
-  preview.src = image.dataset.imagePreview;
-  preview.alt = image.dataset.imageAlt || "Artwork preview";
-  overlay("ov-image", true);
+  if (image) {
+    let images = [image.dataset.imagePreview];
+    try { images = JSON.parse(decodeURIComponent(image.dataset.gallery || "")); } catch { /* A single image still opens. */ }
+    openImageGallery(images, Number(image.dataset.galleryIndex || 0), image.dataset.imageAlt || "Artwork preview");
+    return;
+  }
+  if (e.target.closest("[data-image-prev]")) cycleGallery(-1);
+  if (e.target.closest("[data-image-next]")) cycleGallery(1);
 });
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.querySelectorAll(".ov.open").forEach((ov) => overlay(ov.id, false));
+  if (document.getElementById("ov-image").classList.contains("open") && e.key === "ArrowLeft") cycleGallery(-1);
+  if (document.getElementById("ov-image").classList.contains("open") && e.key === "ArrowRight") cycleGallery(1);
 });
 
 document.getElementById("about-body").innerHTML = `

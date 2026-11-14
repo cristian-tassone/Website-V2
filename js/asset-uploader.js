@@ -74,7 +74,9 @@ stageButton.addEventListener("click", () => {
 async function upload(file, name, cropForHero = false) {
   const params = new URLSearchParams({ name });
   if (isVideo(file)) params.set("convert", "gif");
-  if (isVideo(file) && cropForHero) params.set("crop", "hero");
+  /* Hero GIFs and videos are normalised to the banner crop server-side.
+     This preserves their proportions; the crop simply fills the hero frame. */
+  if (cropForHero) params.set("crop", "hero");
   const response = await fetch(`/api/assets?${params}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
   if (!response.ok) throw new Error(await response.text());
   return (await response.json()).path;

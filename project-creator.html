@@ -3,89 +3,76 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Project Creator — Cristian Tassone</title>
+  <title>Project Workspace — Cristian Tassone</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/project-workbench.css">
 </head>
 <body>
-  <main class="admin-shell brief-shell">
-    <header class="admin-bar">
-      <a class="admin-home" href="admin.html"><span class="home-mark" aria-hidden="true">←</span><span>Portfolio Admin</span></a>
-      <div class="admin-title">Project Creator</div>
-      <a class="admin-orb" href="index.html"><span class="home-mark" aria-hidden="true">⌂</span><span>Portfolio</span></a>
+  <main class="workbench">
+    <header class="workbench-bar">
+      <a class="wb-home" href="admin.html">← <span>Portfolio Admin</span></a>
+      <div class="wb-brand"><span class="wb-dot"></span>Project workspace</div>
+      <div class="wb-actions"><span id="save-state" aria-live="polite">Draft saved locally</span><button type="button" id="build-report">Build Markdown</button></div>
     </header>
 
-    <section class="brief-intro">
-      <span class="eyebrow">Build brief</span>
-      <h1>New project</h1>
-      <p>Start a new project or load an existing one. Changes update the preview as you type; Save generates a compact handoff report for me.</p>
-      <p><a class="secondary-button" href="http://127.0.0.1:8126/asset-uploader.html">Upload hero and gallery assets</a></p>
-    </section>
+    <div class="workbench-grid">
+      <aside class="project-panel">
+        <div class="panel-heading"><span>Project</span><b>Details</b></div>
+        <div class="project-picker-row"><label class="project-picker-label">Open a project
+          <select id="existing-project"><option value="" selected disabled>Select a project…</option></select>
+        </label><button type="button" id="refresh-project" title="Reload this project from the portfolio">↻ Sync</button><button type="button" id="new-project">+ New project</button></div>
+        <form id="project-form" novalidate>
+          <input type="hidden" name="sourceSlug">
+          <label>Project title<input name="title" placeholder="Project title"></label>
+          <label>Slug / page URL<input name="slug" placeholder="project-slug"></label>
+          <label>Channel<select name="channel"><option value="music">Music</option><option value="video">Video</option><option value="design">Design</option><option value="sport">Sport</option><option value="software">Software</option></select></label>
+          <div class="field-pair"><label>Year<input name="year" placeholder="2026"></label><label>Client<input name="client" placeholder="Client"></label></div>
+          <label>Role<input name="role" placeholder="direction · edit"></label>
+          <label>Tile / hover title<input name="tileTitle" placeholder="The title shown on the channel tile"></label>
+        </form>
+        <section class="hero-manager">
+          <div class="mini-heading"><span>Hero media</span><small>GIF, image, MP4 or MOV</small></div>
+          <button id="hero-drop" class="hero-drop" type="button"><input id="hero-input" type="file" accept="image/*,video/mp4,video/quicktime,.gif,.webp,.mp4,.mov" hidden><span class="hero-empty">Drop or choose hero media</span><img id="hero-preview" alt="" hidden></button>
+          <div class="hero-tools" id="hero-tools" hidden><span id="hero-name"></span><button type="button" id="hero-remove">Remove</button></div>
+        </section>
+      </aside>
 
-    <section class="project-picker">
-      <label>Editing project<select id="existing-project"><option value="">New project</option></select></label>
-      <p>Choose any existing project to load its current page content into the editor.</p>
-    </section>
+      <section class="builder-panel">
+        <header class="builder-head"><div><span>Editing project</span><h1 id="canvas-project-title">Project title</h1></div><span id="module-count">0 modules</span></header>
+        <nav class="module-library" aria-label="Add a page module">
+          <button type="button" data-add-module="overview"><i>+</i>Overview</button>
+          <button type="button" data-add-module="media"><i>+</i>Media</button>
+          <button type="button" data-add-module="story"><i>+</i>Story</button>
+          <button type="button" data-add-module="gallery"><i>+</i>Gallery</button>
+          <button type="button" data-add-module="links"><i>+</i>Links</button>
+        </nav>
+        <div class="module-canvas" id="module-canvas"><p class="canvas-empty">Choose a module above to begin. Your page stays intentionally blank until you add one.</p></div>
+        <footer class="builder-footer">
+          <div class="asset-feedback">
+            <b id="asset-status" aria-live="polite">Assets are saved when you build Markdown.</b>
+            <span>New uploads become tidy files in your assets folder.</span>
+            <div class="upload-progress" id="upload-progress" hidden aria-live="polite">
+              <div class="upload-progress-head"><strong id="upload-progress-label">Preparing upload…</strong><span id="upload-progress-value">0%</span></div>
+              <div class="upload-progress-track" role="progressbar" aria-label="Asset upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="upload-progress-fill"></i></div>
+              <small id="upload-progress-detail">Your upload progress will appear here.</small>
+            </div>
+          </div>
+        </footer>
+      </section>
 
-    <form id="brief-form" class="brief-card">
-      <input type="hidden" name="sourceSlug">
-      <div class="form-grid">
-        <label>Project title<input name="title" required placeholder="Khaled Rohaim — EP"></label>
-        <label>Channel<select name="channel" required><option value="music">Music</option><option value="video">Video</option><option value="design">Design</option><option value="sport">Sport</option><option value="software">Software</option></select></label>
-        <label>Year / date<input name="year" placeholder="2026"></label>
-        <label>Client<input name="client" placeholder="Client or self-initiated"></label>
-        <label class="wide">Your role<input name="role" placeholder="direction · edit · production"></label>
-        <label class="wide">One-line project summary<textarea name="context" rows="3" placeholder="The punchy sentence that appears at the top of the page."></textarea></label>
-        <label class="wide">About the project<textarea name="about" rows="6" placeholder="Write one paragraph per line. Tell me what you did, why, and the outcome."></textarea></label>
-
-        <fieldset class="brief-fieldset wide"><legend>Hero media <span>add later if needed</span></legend>
-          <label>Hero GIF / image filename or path<input name="hero" placeholder="Leave blank for now"></label>
-          <p class="field-help">Hero media is optional. We can add it after all project copy is complete.</p>
-        </fieldset>
-
-        <fieldset class="brief-fieldset wide"><legend>Spotify module <span>optional</span></legend>
-          <label>Spotify embed URL<input name="spotify" placeholder="https://open.spotify.com/embed/album/..."></label>
-          <label>Text beside the player<textarea name="spotifyText" rows="3" placeholder="What should people know about this release?"></textarea></label>
-        </fieldset>
-
-        <fieldset class="brief-fieldset wide"><legend>YouTube module <span>optional</span></legend>
-          <label>YouTube URL<input name="youtube" placeholder="https://www.youtube.com/watch?v=..."></label>
-          <label>Text beside the player<textarea name="youtubeText" rows="3" placeholder="What should people know about this video?"></textarea></label>
-        </fieldset>
-
-        <fieldset class="brief-fieldset wide"><legend>Story module <span>optional</span></legend>
-          <label>Story title<input name="storyTitle" placeholder="A short section heading"></label>
-          <label>Story text<textarea name="storyText" rows="4" placeholder="A wider thought, process note or result that needs its own space."></textarea></label>
-        </fieldset>
-
-        <fieldset class="brief-fieldset wide"><legend>Gallery <span>optional</span></legend>
-          <label>Image filenames / paths<textarea name="gallery" rows="4" placeholder="One image per line&#10;artwork-front.jpg&#10;campaign-still-01.png"></textarea></label>
-        </fieldset>
-
-        <fieldset class="brief-fieldset wide"><legend>External links <span>optional</span></legend>
-          <label>Links<textarea name="links" rows="3" placeholder="One per line: Label | https://example.com"></textarea></label>
-        </fieldset>
-      </div>
-      <footer class="brief-actions">
-        <button class="secondary-button" id="clear-form" type="button">Clear</button>
-        <span class="dialog-spacer"></span>
-        <button class="save-button" type="submit">Save &amp; build report</button>
-      </footer>
-    </form>
-
-    <section class="live-preview" aria-live="polite">
-      <header><div><span class="eyebrow">Live page preview</span><h2>As you edit</h2></div><span>Local preview only</span></header>
-      <div id="live-preview-content"></div>
-    </section>
-
-    <section class="brief-output" id="brief-output" hidden>
-      <header><div><span class="eyebrow">Ready for Codex</span><h2>Project build report</h2></div><span id="saved-status"></span></header>
-      <textarea id="report" readonly aria-label="Project build report"></textarea>
-      <div class="brief-actions"><button class="secondary-button" id="copy-report" type="button">Copy report</button><button class="save-button" id="download-report" type="button">Download .txt</button></div>
-    </section>
+      <aside class="preview-panel">
+        <header><div><span>Live preview</span><b id="preview-title">Project title</b></div><button type="button" id="refresh-preview">Refresh</button></header>
+        <div class="preview-frame" id="live-preview"></div>
+      </aside>
+    </div>
   </main>
+
+  <input id="gallery-input" type="file" accept="image/*,video/mp4,video/quicktime,.gif,.webp,.mp4,.mov" multiple hidden>
+  <dialog class="asset-lightbox" id="asset-lightbox"><button type="button" data-close-lightbox aria-label="Close image preview">×</button><img id="lightbox-image" alt="Asset preview"></dialog>
+  <dialog class="report-dialog" id="report-dialog"><header><div><span>Ready for Codex</span><h2>Project build handoff</h2></div><button type="button" data-close-report>×</button></header><textarea id="report" readonly></textarea><footer><button type="button" id="copy-report">Copy report</button><button type="button" id="download-report">Download .md</button></footer></dialog>
+
   <script src="js/data.js"></script>
   <script src="js/project-creator.js"></script>
 </body>
