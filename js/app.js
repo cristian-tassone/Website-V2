@@ -8,11 +8,13 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const scr = document.getElementById("scr");
 const doc = document.getElementById("doc");
 const dockMenu = document.querySelector(".dock-menu");
+const HOME_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>`;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 const inCat = (cat) => PROJECTS.filter((p) => p.category === cat);
 document.documentElement.classList.toggle("hide-scanlines", localStorage.getItem("ct-scanlines") === "off");
 function setDockHomeControl() {
-  dockMenu.textContent = "HOME";
+  dockMenu.innerHTML = HOME_ICON;
+  dockMenu.setAttribute("aria-label", "Home");
   dockMenu.setAttribute("data-home", "");
   dockMenu.removeAttribute("data-overlay-toggle");
   dockMenu.removeAttribute("aria-pressed");
@@ -20,6 +22,7 @@ function setDockHomeControl() {
 function setDockOverlayControl() {
   const visible = !document.documentElement.classList.contains("hide-scanlines");
   dockMenu.textContent = visible ? "OVERLAY ON" : "OVERLAY OFF";
+  dockMenu.setAttribute("aria-label", visible ? "Turn scanline overlay off" : "Turn scanline overlay on");
   dockMenu.removeAttribute("data-home");
   dockMenu.setAttribute("data-overlay-toggle", "");
   dockMenu.setAttribute("aria-pressed", String(visible));
@@ -228,7 +231,7 @@ function viewGrid(id) {
   scr.innerHTML = `
     <div class="strip" style="--dot:${c.accent}">
       <span class="strip-name"><em>${c.label}</em> Channel</span>
-      ${id === "video" ? "" : `<button class="btn btn--sm" type="button" data-home>Home</button>`}
+      <button class="btn btn--sm channel-home" type="button" data-home aria-label="Home"><span>Home</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg></button>
     </div>
     <div class="grid grid--sub">${pad(tiles)}</div>
     <a class="arw arw--l" href="#/${prev}/start" aria-label="${CATEGORIES[prev].label}">${ARROW}</a>
@@ -294,6 +297,18 @@ function viewFeatureCase(p) {
     .filter(([, value]) => value)
     .map(([label, value]) => `<div class="feature-fact"><span>${label}</span><b>${esc(value)}</b></div>`).join("");
   const description = (p.body || []).map((text) => `<p>${esc(text)}</p>`).join("");
+  const renderOverview = (module = {}) => {
+    const overviewCopy = module.copy
+      ? String(module.copy).split(/\n\s*\n/).filter(Boolean).map((text) => `<p>${esc(text)}</p>`).join("")
+      : description;
+    return `<section class="feature-details">
+    <div class="feature-story">
+      <p class="feature-lead">${esc(module.summary || p.context)}</p>
+      ${overviewCopy}
+    </div>
+    <aside class="feature-info" aria-label="Project details">${facts}</aside>
+  </section>`;
+  };
   const youtube = p.youtube || p.videoUrl;
   const spotifyEmbed = (url) => url.includes("/embed/") ? url : url.replace("open.spotify.com/", "open.spotify.com/embed/");
   const isSpotifyPlaylist = (url) => /open\.spotify\.com\/(?:embed\/)?playlist\//.test(url);
@@ -307,6 +322,10 @@ function viewFeatureCase(p) {
     const layoutClass = mediaPosition++ % 2 === 0 ? " project-media--flipped" : "";
     const kind = module.type === "media" ? module.kind : module.type;
     const url = String(module.url || "").trim();
+    if (kind === "image") return `<section class="project-media project-media--player project-media--image project-media--image-${esc(p.slug)}${layoutClass}">
+        <div class="media-frame media-frame--image">${url ? `<img src="${esc(url)}" alt="${esc(p.title)} image" loading="lazy">` : `<div class="media-placeholder"><span>Image coming soon</span></div>`}</div>
+        <aside class="media-copy"><p>${esc(module.text || "A visual detail from the project.")}</p></aside>
+      </section>`;
     return kind === "youtube"
     ? `<section class="project-media project-media--player project-media--youtube${layoutClass}">
         <div class="media-frame media-frame--youtube">${url ? `<iframe src="${youtubeEmbed(url)}" title="${esc(p.title)} video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>` : `<div class="media-placeholder"><span>Video coming soon</span></div>`}</div>
@@ -320,7 +339,7 @@ function viewFeatureCase(p) {
   const renderStory = (module) => `<section class="project-media project-media--story">
     <div class="story-card"><h2>${esc(module.title)}</h2>${String(module.text || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</div>
   </section>`;
-  const renderGallery = (images) => {
+  const renderGallery = (images, note = "") => {
     const allImages = (images || []).map((item) => typeof item === "string" ? { src: item, context: "" } : { src: item?.src || item?.path || "", context: item?.context || item?.caption || item?.text || "" }).filter((item) => item.src);
     const visibleImages = allImages.slice(0, 6);
     const remaining = Math.max(0, allImages.length - visibleImages.length);
@@ -329,10 +348,11 @@ function viewFeatureCase(p) {
       <img src="${esc(image.src)}" alt="${esc(p.title)} image ${index + 1}" loading="lazy">
       ${remaining && index === visibleImages.length - 1 ? `<span class="gallery-more-count">+${remaining}</span>` : ""}
     </button>`).join("");
-    return cards ? `<section class="project-media project-media--gallery"><div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${cards}</div></section>` : "";
+    const noteCard = String(note || "").trim() ? `<aside class="project-gallery-note"><p>${esc(note)}</p></aside>` : "";
+    return cards ? `<section class="project-media project-media--gallery"><div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${cards}${noteCard}</div></section>` : "";
   };
   const renderLinks = (items) => {
-    const links = (items || []).map((link) => `<a class="btn btn--sm" href="${link.url}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>`).join("");
+    const links = (items || []).map((link) => `<a class="btn btn--sm" href="${link.url}"${link.sameTab ? "" : ' target="_blank" rel="noopener"'}>${esc(link.label)}${link.sameTab ? "" : " ↗"}</a>`).join("");
     return links ? `<div class="case-links">${links}</div>` : "";
   };
   const defaultExtras = !p.pageModules ? [
@@ -343,9 +363,10 @@ function viewFeatureCase(p) {
   ].join("") : "";
   const orderedExtras = p.pageModules
     ? p.pageModules.map((module) => {
+      if (module.type === "overview") return renderOverview(module);
       if (module.type === "media") return renderMedia(module);
       if (module.type === "story") return renderStory(module);
-      if (module.type === "gallery") return renderGallery(module.items);
+      if (module.type === "gallery") return renderGallery(module.items, module.text);
       if (module.type === "links") return renderLinks(module.items);
       return "";
     }).join("")
@@ -374,14 +395,7 @@ function viewFeatureCase(p) {
           ${p.client ? `<p>${esc(p.client)}</p>` : ""}
         </figcaption>
       </figure>
-      <section class="feature-details">
-        <div class="feature-story">
-          <p class="feature-lead">${esc(p.context)}</p>
-          ${description}
-        </div>
-        <aside class="feature-info" aria-label="Project details">${facts}</aside>
-      </section>
-      ${orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : ""}
+      ${p.pageModules ? (orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : "") : `${renderOverview()}${orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : ""}`}
       <nav class="case-pn feature-pn">
         <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
         <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
