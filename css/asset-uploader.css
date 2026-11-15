@@ -32,4 +32,12 @@
 .asset-handoff h2 { margin: .2rem 0 .45rem; color: var(--ink-deep); font-size: 1.8rem; }
 .asset-handoff p { color: #748087; line-height: 1.55; }
 .asset-handoff pre { overflow: auto; margin: 1rem 0; padding: 1rem; border-radius: .85rem; color: #4e5b62; background: rgba(255,255,255,.75); font: .82rem/1.55 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+html[data-theme="dark"] .uploader-intro p, html[data-theme="dark"] .asset-help, html[data-theme="dark"] .asset-status, html[data-theme="dark"] .asset-handoff p { color:#bdced4; }
+html[data-theme="dark"] .asset-project, html[data-theme="dark"] .asset-zone, html[data-theme="dark"] .asset-file, html[data-theme="dark"] .batch-item { color:#d3e2e6; }
+html[data-theme="dark"] .asset-project select { color:#e4f0f3; border-color:rgba(140,204,225,.36); background:#202b30; }
+html[data-theme="dark"] .asset-zone { border-color:#68c8e8; background:rgba(43,57,64,.7); }
+html[data-theme="dark"] .asset-zone:hover, html[data-theme="dark"] .asset-zone.is-dragging, html[data-theme="dark"] .asset-zone:focus-visible { background:rgba(48,73,82,.94); }
+html[data-theme="dark"] .asset-zone b, html[data-theme="dark"] .asset-batch h2, html[data-theme="dark"] .asset-handoff h2, html[data-theme="dark"] .batch-item b { color:#edf7fa; }
+html[data-theme="dark"] .asset-zone span:last-child, html[data-theme="dark"] .batch-item span { color:#aec2c9; }
+html[data-theme="dark"] .asset-file, html[data-theme="dark"] .batch-item, html[data-theme="dark"] .asset-handoff pre { color:#d5e4e8; background:rgba(38,52,59,.88); }
 @media (max-width: 680px) { .asset-zones { grid-template-columns: 1fr; } .asset-zone { min-height: 11rem; } }

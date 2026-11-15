@@ -9,23 +9,32 @@ const scr = document.getElementById("scr");
 const doc = document.getElementById("doc");
 const dockMenu = document.querySelector(".dock-menu");
 const HOME_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>`;
+const THEME_ICON = `<svg viewBox="0 0 44 54" aria-hidden="true"><g class="theme-sun"><circle cx="22" cy="27" r="8"/><path d="M22 7v5M22 42v5M7 27h5M32 27h5M11.4 16.4l3.5 3.5M29.1 34.1l3.5 3.5M32.6 16.4l-3.5 3.5M14.9 34.1l3.5 3.5"/></g><path class="theme-moon" d="M29.7 10.7A17.2 17.2 0 1 0 33.3 39 15.4 15.4 0 0 1 29.7 10.7Z"/></svg>`;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-const inCat = (cat) => PROJECTS.filter((p) => p.category === cat);
-document.documentElement.classList.toggle("hide-scanlines", localStorage.getItem("ct-scanlines") === "off");
+const inCat = (cat) => {
+  const channel = CATEGORIES[cat];
+  if (channel?.layout === "split" && Array.isArray(channel.projectSlots) && channel.projectSlots.length) {
+    return channel.projectSlots.map((slug) => PROJECTS.find((project) => project.slug === slug)).filter(Boolean);
+  }
+  const projects = PROJECTS.filter((project) => project.category === cat);
+  const order = CHANNEL_PROJECT_ORDER[cat] || [];
+  const bySlug = new Map(projects.map((project) => [project.slug, project]));
+  return [...order.map((slug) => bySlug.get(slug)).filter(Boolean), ...projects.filter((project) => !order.includes(project.slug))];
+};
 function setDockHomeControl() {
+  if (!dockMenu) return;
+  dockMenu.hidden = false;
   dockMenu.innerHTML = HOME_ICON;
   dockMenu.setAttribute("aria-label", "Home");
   dockMenu.setAttribute("data-home", "");
-  dockMenu.removeAttribute("data-overlay-toggle");
   dockMenu.removeAttribute("aria-pressed");
 }
-function setDockOverlayControl() {
-  const visible = !document.documentElement.classList.contains("hide-scanlines");
-  dockMenu.textContent = visible ? "OVERLAY ON" : "OVERLAY OFF";
-  dockMenu.setAttribute("aria-label", visible ? "Turn scanline overlay off" : "Turn scanline overlay on");
+function hideDockMenuControl() {
+  if (!dockMenu) return;
+  dockMenu.hidden = true;
   dockMenu.removeAttribute("data-home");
-  dockMenu.setAttribute("data-overlay-toggle", "");
-  dockMenu.setAttribute("aria-pressed", String(visible));
+  dockMenu.removeAttribute("data-overlay-toggle");
+  dockMenu.removeAttribute("aria-pressed");
 }
 /* Every project opened from a channel uses the shared feature-page system. */
 const isFeatureProject = () => true;
@@ -180,10 +189,32 @@ function pad(tiles) {
 function viewMenu() {
   document.title = "Cristian Tassone";
   document.body.className = "v-menu";
-  setDockOverlayControl();
+  hideDockMenuControl();
   const tiles = CATEGORY_ORDER.map((id) =>
     `<a class="chan" href="#/${id}" data-tile="c:${id}" aria-label="${CATEGORIES[id].label} Channel">${catFace(id)}</a>`);
   scr.innerHTML = `<div class="grid">${pad(tiles)}</div>`;
+}
+
+let splashSwapTimer = 0;
+function scheduleSplashSwap(projects) {
+  window.clearTimeout(splashSwapTimer);
+  if (REDUCED) return;
+  const covers = projects.filter((project) => project.cover).map((project) => project.cover);
+  if (covers.length < 2) return;
+  const swap = () => {
+    if (!document.body.classList.contains("v-splash")) return;
+    const images = [...scr.querySelectorAll(".splash-banner .bn img")];
+    if (images.length) {
+      const image = images[Math.floor(Math.random() * images.length)];
+      const choices = covers.filter((cover) => cover !== image.getAttribute("src"));
+      const next = choices[Math.floor(Math.random() * choices.length)] || covers[0];
+      const cell = image.closest(".bn");
+      cell.classList.add("is-swapping");
+      window.setTimeout(() => { image.src = next; cell.classList.remove("is-swapping"); }, 520);
+    }
+    splashSwapTimer = window.setTimeout(swap, 1000 + Math.random() * 1000);
+  };
+  splashSwapTimer = window.setTimeout(swap, 1100 + Math.random() * 900);
 }
 
 function viewSplash(id) {
@@ -198,7 +229,7 @@ function viewSplash(id) {
 
   /* the banner mirrors the Mii crowd — covers where they exist, name plates where they don't */
   let cells = list.map((p) => p.cover
-    ? `<span class="bn"><img src="${p.cover}" alt="" loading="lazy"></span>`
+    ? `<span class="bn"><img src="${p.cover}" alt=""></span>`
     : `<span class="bn bn--txt">${esc(p.title)}</span>`);
   while (cells.length && cells.length < 7) cells = cells.concat(cells);   // fill the strip
   cells = cells.slice(0, 9);
@@ -207,7 +238,6 @@ function viewSplash(id) {
     <div class="splash" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
       <h1 class="splash-title">The ${c.label} Channel</h1>
       <div class="splash-banner">${cells.join("")}</div>
-      <p class="splash-sub">${esc(c.tagline)} — ${list.length} project${list.length === 1 ? "" : "s"}</p>
       <div class="splash-btns">
         <button class="btn" type="button" data-home>Home</button>
         <a class="btn" href="#/${id}/start" data-start>Start</a>
@@ -215,6 +245,7 @@ function viewSplash(id) {
       <a class="arw arw--l" href="#/${prev}" aria-label="${CATEGORIES[prev].label} Channel">${ARROW}</a>
       <a class="arw arw--r" href="#/${next}" aria-label="${CATEGORIES[next].label} Channel">${ARROW}</a>
     </div>`;
+  scheduleSplashSwap(list);
 }
 
 function viewGrid(id) {
@@ -223,8 +254,15 @@ function viewGrid(id) {
   const reversing = document.body.classList.contains("is-feature-reversing");
   document.body.className = `v-grid v-grid--${id}${reversing ? " is-feature-reversing" : ""}`;
   setDockHomeControl();
-  const tiles = inCat(id).map((p) =>
-    `<a class="chan" href="#/${id}/${p.slug}" data-tile="p:${p.slug}" aria-label="${esc(p.title)}">${projFace(p)}</a>`);
+  const isSplitLayout = c.layout === "split";
+  const channelProjects = isSplitLayout && Array.isArray(c.projectSlots) && c.projectSlots.length
+    ? c.projectSlots.slice(0, 6).map((slug) => slug ? PROJECTS.find((project) => project.slug === slug) : null)
+    : inCat(id);
+  const tiles = channelProjects.map((p) => p
+    ? `<a class="chan" href="#/${id}/${p.slug}" data-tile="p:${p.slug}" aria-label="${esc(p.title)}">${projFace(p)}</a>`
+    : `<div class="chan chan--void" aria-hidden="true"></div>`);
+  const splitTiles = tiles.slice(0, 6);
+  while (splitTiles.length < 6) splitTiles.push(`<div class="chan chan--void" aria-hidden="true"></div>`);
   const i = CATEGORY_ORDER.indexOf(id);
   const prev = CATEGORY_ORDER[(i + CATEGORY_ORDER.length - 1) % CATEGORY_ORDER.length];
   const next = CATEGORY_ORDER[(i + 1) % CATEGORY_ORDER.length];
@@ -233,21 +271,21 @@ function viewGrid(id) {
       <span class="strip-name"><em>${c.label}</em> Channel</span>
       <button class="btn btn--sm channel-home" type="button" data-home aria-label="Home"><span>Home</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg></button>
     </div>
-    <div class="grid grid--sub">${pad(tiles)}</div>
+    ${isSplitLayout ? `<div class="grid grid--sub grid--channel-intro"><div class="channel-project-grid">${splitTiles.join("")}</div><aside class="channel-intro"><h1>${esc(c.introTitle || c.label)}</h1>${String(c.introText || "Placeholder text.").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</aside></div>` : `<div class="grid grid--sub">${pad(tiles)}</div>`}
     <a class="arw arw--l" href="#/${prev}/start" aria-label="${CATEGORIES[prev].label}">${ARROW}</a>
     <a class="arw arw--r" href="#/${next}/start" aria-label="${CATEGORIES[next].label}">${ARROW}</a>`;
 }
 
-function viewCase(p) {
+function viewCase(p, channel = p.category) {
   if (isFeatureProject(p)) {
-    viewFeatureCase(p);
+    viewFeatureCase(p, channel);
     return;
   }
-  const c = CATEGORIES[p.category];
+  const c = CATEGORIES[channel];
   document.title = `${p.title} — Cristian Tassone`;
   document.body.className = "v-case";
   setDockHomeControl();
-  const sib = inCat(p.category);
+  const sib = inCat(channel);
   const i = sib.indexOf(p);
   const prev = sib[(i + sib.length - 1) % sib.length];
   const next = sib[(i + 1) % sib.length];
@@ -264,7 +302,8 @@ function viewCase(p) {
   doc.innerHTML = `
     <article class="case" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
       <div class="case-bar">
-        <a class="btn btn--sm" href="#/${p.category}/start" data-back>← ${c.label}</a>
+        <a class="btn btn--sm" href="#/${channel}/start" data-back>← ${c.label}</a>
+        <button class="btn btn--sm case-theme-toggle" type="button" data-theme-toggle aria-label="enable dark mode">◐</button>
         <button class="btn btn--sm" type="button" data-home>Home</button>
       </div>
       <span class="case-band">${c.label} Channel</span>
@@ -278,17 +317,17 @@ function viewCase(p) {
       ${credits ? `<section class="case-credits"><h3>credits</h3>${credits}</section>` : ""}
       ${links ? `<div class="case-links">${links}</div>` : ""}
       <nav class="case-pn">
-        <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
-        <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
+        <a class="btn btn--sm" href="#/${channel}/${prev.slug}">← ${esc(prev.title)}</a>
+        <a class="btn btn--sm" href="#/${channel}/${next.slug}">${esc(next.title)} →</a>
       </nav>
     </article>`;
   scr.innerHTML = "";
   window.scrollTo(0, 0);
 }
 
-function viewFeatureCase(p) {
-  const c = CATEGORIES[p.category];
-  const sib = inCat(p.category);
+function viewFeatureCase(p, channel = p.category) {
+  const c = CATEGORIES[channel];
+  const sib = inCat(channel);
   const i = sib.indexOf(p);
   const prev = sib[(i + sib.length - 1) % sib.length];
   const next = sib[(i + 1) % sib.length];
@@ -311,6 +350,7 @@ function viewFeatureCase(p) {
   };
   const youtube = p.youtube || p.videoUrl;
   const spotifyEmbed = (url) => url.includes("/embed/") ? url : url.replace("open.spotify.com/", "open.spotify.com/embed/");
+  const soundcloudEmbed = (url) => url.includes("w.soundcloud.com/player/") ? url : `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%2362c5e7&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=true&visual=true`;
   const isSpotifyPlaylist = (url) => /open\.spotify\.com\/(?:embed\/)?playlist\//.test(url);
   const mediaModules = [
     ...(p.embed ? [{ type: "spotify", url: p.embed, heading: p.embedHeading, text: p.embedNote }] : []),
@@ -326,6 +366,10 @@ function viewFeatureCase(p) {
         <div class="media-frame media-frame--image">${url ? `<img src="${esc(url)}" alt="${esc(p.title)} image" loading="lazy">` : `<div class="media-placeholder"><span>Image coming soon</span></div>`}</div>
         <aside class="media-copy"><p>${esc(module.text || "A visual detail from the project.")}</p></aside>
       </section>`;
+    if (kind === "soundcloud") return `<section class="project-media project-media--player project-media--soundcloud${layoutClass}">
+        <div class="media-frame media-frame--soundcloud">${url ? `<iframe src="${soundcloudEmbed(url)}" title="${esc(p.title)} on SoundCloud" loading="lazy" allow="autoplay"></iframe>` : `<div class="media-placeholder"><span>SoundCloud player coming soon</span></div>`}</div>
+        <aside class="media-copy"><p>${esc(module.text || "Listen to the full project here.")}</p></aside>
+      </section>`;
     return kind === "youtube"
     ? `<section class="project-media project-media--player project-media--youtube${layoutClass}">
         <div class="media-frame media-frame--youtube">${url ? `<iframe src="${youtubeEmbed(url)}" title="${esc(p.title)} video" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>` : `<div class="media-placeholder"><span>Video coming soon</span></div>`}</div>
@@ -339,7 +383,7 @@ function viewFeatureCase(p) {
   const renderStory = (module) => `<section class="project-media project-media--story">
     <div class="story-card"><h2>${esc(module.title)}</h2>${String(module.text || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</div>
   </section>`;
-  const renderGallery = (images, note = "") => {
+  const renderGallery = (images) => {
     const allImages = (images || []).map((item) => typeof item === "string" ? { src: item, context: "" } : { src: item?.src || item?.path || "", context: item?.context || item?.caption || item?.text || "" }).filter((item) => item.src);
     const visibleImages = allImages.slice(0, 6);
     const remaining = Math.max(0, allImages.length - visibleImages.length);
@@ -348,8 +392,7 @@ function viewFeatureCase(p) {
       <img src="${esc(image.src)}" alt="${esc(p.title)} image ${index + 1}" loading="lazy">
       ${remaining && index === visibleImages.length - 1 ? `<span class="gallery-more-count">+${remaining}</span>` : ""}
     </button>`).join("");
-    const noteCard = String(note || "").trim() ? `<aside class="project-gallery-note"><p>${esc(note)}</p></aside>` : "";
-    return cards ? `<section class="project-media project-media--gallery"><div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${cards}${noteCard}</div></section>` : "";
+    return cards ? `<section class="project-media project-media--gallery"><div class="case-gallery${p.slug === "cover-art" ? " cover-gallery" : ""}"${p.slug === "cover-art" ? " data-magnetic-gallery" : ""}>${cards}</div></section>` : "";
   };
   const renderLinks = (items) => {
     const links = (items || []).map((link) => `<a class="btn btn--sm" href="${link.url}"${link.sameTab ? "" : ' target="_blank" rel="noopener"'}>${esc(link.label)}${link.sameTab ? "" : " ↗"}</a>`).join("");
@@ -366,7 +409,7 @@ function viewFeatureCase(p) {
       if (module.type === "overview") return renderOverview(module);
       if (module.type === "media") return renderMedia(module);
       if (module.type === "story") return renderStory(module);
-      if (module.type === "gallery") return renderGallery(module.items, module.text);
+      if (module.type === "gallery") return renderGallery(module.items);
       if (module.type === "links") return renderLinks(module.items);
       return "";
     }).join("")
@@ -379,10 +422,13 @@ function viewFeatureCase(p) {
   doc.innerHTML = `
     <article class="case case--feature" style="--acc:${c.accent};--g1:${c.g1};--g2:${c.g2}">
       <nav class="feature-nav" aria-label="Project navigation">
-        <a class="feature-icon-btn" href="#/${p.category}/start" data-back aria-label="Back to ${c.label}">
+        <a class="feature-icon-btn" href="#/${channel}/start" data-back aria-label="Back to ${c.label}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4 6.5 12l8 8M7.5 12h10"/></svg>
         </a>
         <div class="feature-nav-actions">
+          <button class="feature-icon-btn feature-theme-btn" type="button" data-theme-toggle aria-label="enable dark mode">
+            ${THEME_ICON}
+          </button>
           <button class="feature-icon-btn" type="button" data-home aria-label="Home">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-14A1.5 1.5 0 0 1 3.5 19.5z"/><path d="M9.2 21v-6h5.6v6"/></svg>
           </button>
@@ -397,12 +443,13 @@ function viewFeatureCase(p) {
       </figure>
       ${p.pageModules ? (orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : "") : `${renderOverview()}${orderedExtras ? `<section class="feature-extras">${orderedExtras}</section>` : ""}`}
       <nav class="case-pn feature-pn">
-        <a class="btn btn--sm" href="#/${p.category}/${prev.slug}">← ${esc(prev.title)}</a>
-        <a class="btn btn--sm" href="#/${p.category}/${next.slug}">${esc(next.title)} →</a>
+        <a class="btn btn--sm" href="#/${channel}/${prev.slug}">← ${esc(prev.title)}</a>
+        <a class="btn btn--sm" href="#/${channel}/${next.slug}">${esc(next.title)} →</a>
       </nav>
     </article>`;
   scr.innerHTML = "";
   window.scrollTo(0, 0);
+  paintTheme();
   enableMagneticCoverGallery();
 }
 
@@ -449,11 +496,11 @@ function parse() {
   // a fallback guard made browser-created projects open their channel when
   // metadata came from a different admin version.
   const p = PROJECTS.find((x) => x.slug === seg);
-  return p ? { name: "case", p } : { name: "splash", cat };
+  return p ? { name: "case", p, cat } : { name: "splash", cat };
 }
 
 function render(r) {
-  if (r.name === "case") viewCase(r.p);
+  if (r.name === "case") viewCase(r.p, r.cat);
   else if (r.name === "grid") viewGrid(r.cat);
   else if (r.name === "splash") viewSplash(r.cat);
   else viewMenu();
@@ -474,14 +521,6 @@ window.addEventListener("hashchange", () => {
 
 /* ---------------- interaction ---------------- */
 document.addEventListener("click", (e) => {
-  const overlayToggle = e.target.closest("[data-overlay-toggle]");
-  if (overlayToggle) {
-    const root = document.documentElement;
-    root.classList.toggle("hide-scanlines");
-    localStorage.setItem("ct-scanlines", root.classList.contains("hide-scanlines") ? "off" : "on");
-    setDockOverlayControl();
-    return;
-  }
   /* home, from anywhere */
   const home = e.target.closest("[data-home]");
   if (home) {
@@ -544,7 +583,7 @@ document.addEventListener("click", (e) => {
 
 /* cursor ticks */
 document.addEventListener("pointerenter", (e) => {
-  if (e.target instanceof Element && e.target.matches(".chan[data-tile], .orb, .btn, .arw, .sd, .tag")) SFX.hover();
+  if (e.target instanceof Element && e.target.matches(".chan[data-tile], .orb, .sd, .theme-toggle, .btn, .feature-icon-btn, .arw, .tag")) SFX.hover();
 }, true);
 
 /* ---------------- the clock ---------------- */
@@ -693,6 +732,28 @@ const sd = document.getElementById("btn-sound");
 const paintSd = () => { sd.classList.toggle("is-muted", SFX.muted); sd.title = SFX.muted ? "sound off" : "sound on"; };
 sd.addEventListener("click", () => { SFX.toggle(); paintSd(); });
 paintSd();
+
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+const themeButtons = () => [...document.querySelectorAll("[data-theme-toggle]")];
+function paintTheme() {
+  const dark = document.documentElement.dataset.theme === "dark";
+  themeButtons().forEach((button) => {
+    button.classList.toggle("is-dark", dark);
+    button.setAttribute("aria-label", dark ? "enable light mode" : "enable dark mode");
+    button.title = dark ? "light mode" : "dark mode";
+  });
+  if (themeMeta) themeMeta.content = dark ? "#151c21" : "#e2e3e5";
+}
+document.addEventListener("click", (event) => {
+  const themeButton = event.target.closest("[data-theme-toggle]");
+  if (!themeButton) return;
+  const dark = document.documentElement.dataset.theme !== "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  try { localStorage.setItem("ct-theme", dark ? "dark" : "light"); } catch (_) {}
+  SFX.select();
+  paintTheme();
+});
+paintTheme();
 
 /* ---------------- go ---------------- */
 draw();
